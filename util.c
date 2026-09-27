@@ -3,7 +3,7 @@
 #include <windows.h>
 #include "util.h"
 
-// util.c: 公共工具
+// util.c: 共通ツール
 
 void utf8_to_wide(const char *in, wchar_t *out, int n){
     MultiByteToWideChar(CP_UTF8, 0, in, -1, out, n);
@@ -14,7 +14,7 @@ void wide_to_utf8(const wchar_t *in, char *out, int n){
     WideCharToMultiByte(CP_UTF8, 0, in, -1, out, n, NULL, NULL);
 }
 
-/* 获取当前主程序的完整目录 */
+/* 現在の本体プログラムのディレクトリを取得 */
 void get_dl_root(wchar_t *buf, int n){
     GetModuleFileNameW(NULL, buf, n);
     wchar_t *p = wcsrchr(buf, L'\\');
@@ -22,7 +22,7 @@ void get_dl_root(wchar_t *buf, int n){
     wcscat(buf, L"\\CGSS_DOWN");
 }
 
-/* 递归创建目录 */
+/* ディレクトリを再帰的に作成 */
 
 void mkdirs(const wchar_t *path){
     wchar_t tmp[1024];
@@ -31,21 +31,21 @@ void mkdirs(const wchar_t *path){
         if (*p == L'\\'){
             *p = 0;
             if (!CreateDirectoryW(tmp, NULL) && GetLastError() != ERROR_ALREADY_EXISTS)
-                printf("????? %ls err=%lu\n", tmp, (unsigned long)GetLastError());
+                printf("ディレクトリ作成失敗 %ls err=%lu\n", tmp, (unsigned long)GetLastError());
             *p = L'\\';
         }
     }
     if (!CreateDirectoryW(tmp, NULL) && GetLastError() != ERROR_ALREADY_EXISTS)
-        printf("????? %ls err=%lu\n", tmp, (unsigned long)GetLastError());
+        printf("ディレクトリ作成失敗 %ls err=%lu\n", tmp, (unsigned long)GetLastError());
 }
 
-/* 资源名去掉目录部分（l/song_1.acb -> song_1.acb） */
+/* リソース名からディレクトリ部分を除く（l/song_1.acb -> song_1.acb） */
 const char *base_name(const char *name){
     const char *p = strrchr(name, '/');
     return p ? p + 1 : name;
 }
 
-/* 扫描当前目录 manifest_*.db，返回版本号最大的文件名（静态缓冲，NULL=没有） */
+/* 現在のディレクトリの manifest_*.db を走査し、バージョン最大のファイル名を返す（静的バッファ、NULL=なし） */
 
 const char *find_manifest(void){
     static char path[260];
@@ -65,7 +65,7 @@ const char *find_manifest(void){
     return best > 0 ? path : NULL;
 }
 
-/* ================== LZ4 块解压（移植 cgss_lz4.py） ================== */
+/* ================== LZ4 ブロック展開（cgss_lz4.py から移植） ================== */
 
 
 int parse_multi(const char *line, int *sel, int max){
@@ -79,7 +79,7 @@ int parse_multi(const char *line, int *sel, int max){
             if (v > 0 && v <= max && n < 64) sel[n++] = v;
         } else p++;
     }
-    if(n == 0) fprintf(stderr,"输入无效\n");
+    if(n == 0) fprintf(stderr,"無効な入力\n");
     return n;
 }
 
@@ -90,4 +90,4 @@ int selected(const int *sel, int n, int v){
     return 0;
 }
 
-/* 把 ResItem 列表下载到角色目录下各自子目录 */
+/* ResItem 一覧をキャラディレクトリ配下の各サブディレクトリへダウンロード */

@@ -1,16 +1,16 @@
 # -*- coding: utf-8 -*-
 # cgss_apply_textures.py
-# 在 Blender 中给已导入的 CGSS FBX 自动贴图，并把所有材质 BSDF 糙度设为 1。
-# 用法：导入 FBX 后，Scripting 面板打开本脚本，点 Run Script。
-# 结果会弹窗显示；找不到贴图目录也会弹窗提示改 TEXDIR。
+# 読み込み済みの CGSS FBX に、Blender 上で自動でテクスチャを貼り、すべてのマテリアルの BSDF 粗さを 1 にする。
+# 使い方：FBX を読み込んだあと、Scripting パネルで本スクリプトを開き、Run Script を押す。
+# 結果はダイアログに出る。テクスチャディレクトリが見つからない場合も、TEXDIR の変更をダイアログで知らせる。
 import bpy
 import os
 import glob
 import traceback
 
-# 手动指定贴图文件夹（留空则自动搜索）
+# テクスチャフォルダを手動指定（空欄なら自動検索）
 TEXDIR = r''
-# 搜索过的目录（诊断用）
+# 検索したディレクトリ（診断用）
 SEARCHED_PATHS = []
 
 
@@ -26,7 +26,7 @@ def show_popup(title, msg):
 
 
 def script_dir():
-    # 从 Text Editor 打开的脚本文件拿到它的所在目录（不写死路径，换电脑也能用）
+    # Text Editor で開いたスクリプトの所在ディレクトリを得る（パスを固定しないので、別の PC でも使える）
     for t in bpy.data.texts:
         if 'cgss_apply_textures' in t.name and t.filepath:
             d = os.path.dirname(bpy.path.abspath(t.filepath))
@@ -46,7 +46,7 @@ def find_texdir():
     cands = []
     sd = script_dir()
     if sd:
-        cands += [sd, os.path.join(sd, 'CGSS_DOWN'), os.path.join(sd, 'fbx\u5bfc\u51fa\u5bf9\u6bd4')]
+        cands += [sd, os.path.join(sd, 'CGSS_DOWN'), os.path.join(sd, 'fbx書き出し比較')]
     if bpy.data.filepath:
         cands.append(os.path.dirname(bpy.data.filepath))
     cands.append(os.getcwd())
@@ -60,9 +60,9 @@ def find_texdir():
             has_png = False
         if has_png:
             return c
-        pats = [os.path.join(c, 'CGSS_DOWN', '*', '3d\u6a21\u578b', '\u8d34\u56fe'),
-                os.path.join(c, 'fbx\u5bfc\u51fa\u5bf9\u6bd4'),
-                os.path.join(c, '**', '\u8d34\u56fe')]
+        pats = [os.path.join(c, 'CGSS_DOWN', '*', '3dモデル', 'テクスチャ'),
+                os.path.join(c, 'fbx書き出し比較'),
+                os.path.join(c, '**', 'テクスチャ')]
         for pat in pats:
             hits = glob.glob(pat, recursive=True) if '**' in pat else glob.glob(pat)
             for h in hits:
@@ -91,7 +91,7 @@ def pick(texdir, keys):
 
 
 def set_all_roughness():
-    # 强制糙度=1：先断开 Roughness 输入上的所有连接（否则 default_value 不生效）
+    # 粗さを強制的に 1：先に Roughness 入力の接続をすべて外す（そうしないと default_value が効かない）
     n = 0
     for mat in bpy.data.materials:
         mat.use_nodes = True
@@ -109,7 +109,7 @@ def set_all_roughness():
 
 
 def clear_tex_nodes(mat):
-    # 删掉材质里已有的贴图节点，保证重复运行是重贴而不是跳过
+    # マテリアル内の既存テクスチャノードを削除する。再実行時は貼り直しになり、スキップにはしない
     tree = mat.node_tree
     for node in list(tree.nodes):
         if node.type == 'TEX_IMAGE':
@@ -117,7 +117,7 @@ def clear_tex_nodes(mat):
 
 
 def pick_image(keys):
-    # 优先用场景里已加载的图片（GUI 导出的 FBX 带贴图引用，导入时已加载）
+    # シーンにすでに読み込まれている画像を優先（GUI 書き出しの FBX はテクスチャ参照を持っており、読み込み時にロード済み）
     cands = [img for img in bpy.data.images
              if all(k in img.name.lower() for k in keys)]
     png = [img for img in cands if img.name.lower().endswith('.png')]
@@ -131,28 +131,28 @@ def pick_image(keys):
 
 
 def main():
-    # 糙度=1 永远执行，不依赖贴图目录是否找到
+    # 粗さ=1 は常に実行する。テクスチャディレクトリが見つかったかどうかには依存しない
     rough_n = set_all_roughness()
 
     texdir = find_texdir()
     lines = []
-    lines.append('糙度=1 已设置到 %d 个材质' % rough_n)
+    lines.append('粗さ=1 を %d 個のマテリアルに設定' % rough_n)
     if texdir:
-        lines.append('贴图目录：%s' % texdir)
+        lines.append('テクスチャディレクトリ：%s' % texdir)
     else:
-        lines.append('贴图目录：未找到')
+        lines.append('テクスチャディレクトリ：見つかりません')
     mats = list(bpy.data.materials)
-    lines.append('场景材质数量：%d' % len(mats))
+    lines.append('シーンのマテリアル数：%d' % len(mats))
     if not texdir:
         lines.append('')
-        lines.append('搜索过的目录：')
+        lines.append('検索したディレクトリ：')
         for p in SEARCHED_PATHS:
             lines.append('  ' + p)
-        lines.append('请把贴图文件夹放到这些目录之一，')
-        lines.append('或在脚本开头修改 TEXDIR 手动指定。')
+        lines.append('テクスチャフォルダをこれらのディレクトリのいずれかに置くか、')
+        lines.append('スクリプト先頭の TEXDIR を変更して手動指定してください。')
         msg = '\n'.join(lines)
         print(msg)
-        show_popup('没有贴图目录', msg)
+        show_popup('テクスチャディレクトリがありません', msg)
         return
 
     mat_count = 0
@@ -163,16 +163,16 @@ def main():
         clear_tex_nodes(mat)
         bsdf = mat.node_tree.nodes.get('Principled BSDF')
         if not bsdf:
-            lines.append('  [%s] 无 Principled BSDF，跳过' % mat.name)
+            lines.append('  [%s] Principled BSDF がないためスキップ' % mat.name)
             continue
-        # 镜面输入名随 Blender 版本变化：4.x 叫 Specular IOR Level，旧版叫 Specular
+        # スペキュラ入力名は Blender のバージョンで変わる：4.x は Specular IOR Level、旧版は Specular
         spec_key = None
         for cand in ('Specular IOR Level', 'Specular'):
             if cand in bsdf.inputs:
                 spec_key = cand
                 break
         m = mat.name.lower()
-        # 腮红：贴图带透明通道，同时连 Base Color 和 Alpha，并启用透明混合
+        # チーク：テクスチャにアルファチャンネルがある。Base Color と Alpha の両方につなぎ、透過ブレンドを有効にする
         if 'cheek' in m:
             img = pick_image(['cheek'])
             if not img and texdir:
@@ -191,8 +191,8 @@ def main():
                 slot_count += 2
                 match_info.append('cheek -> %s(+Alpha)' % img.name)
             else:
-                match_info.append('cheek 未找到贴图')
-            lines.append('  [%s] %s' % (mat.name, '; '.join(match_info) or '无'))
+                match_info.append('cheek のテクスチャが見つかりません')
+            lines.append('  [%s] %s' % (mat.name, '; '.join(match_info) or 'なし'))
             continue
         slots = []
         if m.startswith('m_body') or 'mt_body' in m:
@@ -230,7 +230,7 @@ def main():
                 slots.append(('Specular', img))
                 match_info.append('spec -> %s' % img.name)
         if not slots:
-            lines.append('  [%s] 材质名没匹配到规则，跳过' % mat.name)
+            lines.append('  [%s] マテリアル名が規則に一致しないためスキップ' % mat.name)
             continue
         for slot, img in slots:
             tex = mat.node_tree.nodes.new('ShaderNodeTexImage')
@@ -241,12 +241,12 @@ def main():
                 mat.node_tree.links.new(tex.outputs['Color'], bsdf.inputs[spec_key])
             slot_count += 1
         mat_count += 1
-        lines.append('  [%s] %s' % (mat.name, '; '.join(match_info) or '无'))
+        lines.append('  [%s] %s' % (mat.name, '; '.join(match_info) or 'なし'))
 
-    msg = ('贴图完成：%d 个材质，%d 张贴图\n设置糙度=1 的材质：%d 个\n\n详细：\n%s' % (
+    msg = ('テクスチャ完了：%d 個のマテリアル、%d 枚のテクスチャ\n粗さ=1 にしたマテリアル：%d 個\n\n詳細：\n%s' % (
         mat_count, slot_count, rough_n, '\n'.join(lines)))
     print(msg)
-    show_popup('贴图完成', msg)
+    show_popup('テクスチャ完了', msg)
 
 
 try:
@@ -254,4 +254,4 @@ try:
 except Exception:
     err = traceback.format_exc()
     print(err)
-    show_popup('脚本出错', err[-500:])
+    show_popup('スクリプトエラー', err[-500:])

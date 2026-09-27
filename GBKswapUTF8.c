@@ -6,10 +6,10 @@
 #include <windows.h>
 #include "GBKswapUTF8.h"
 
-/* 自动识别：输入用控制台输入代码页，输出用控制台输出代码页 */
+/* 自動判定: 入力はコンソール入力コードページ、出力はコンソール出力コードページ */
 static UINT input_cp(void) {
     UINT cp = GetConsoleCP();
-    return cp == 0 ? GetACP() : cp;      /* 重定向时退回系统 ANSI */
+    return cp == 0 ? GetACP() : cp;      /* リダイレクト時はシステムの ANSI に戻す */
 }
 
 static UINT output_cp(void) {
@@ -20,7 +20,7 @@ static UINT output_cp(void) {
 /* UTF-8 (db text) -> console codepage (GBK or UTF-8) */
 void utf8_to_gbk(const char *in, char *out, int out_size) {
     UINT cp = output_cp();
-    if (cp == CP_UTF8) {                 /* 终端就是 UTF-8，直接复制 */
+    if (cp == CP_UTF8) {                 /* 端末が UTF-8 ならそのままコピー */
         strncpy(out, in, out_size - 1);
         out[out_size - 1] = 0;
         return;
@@ -35,7 +35,7 @@ void utf8_to_gbk(const char *in, char *out, int out_size) {
 /* console codepage (GBK or UTF-8) -> UTF-8 for db queries */
 void gbk_to_utf8(const char *in, char *out, int out_size) {
     UINT cp = input_cp();
-    if (cp == CP_UTF8) {                 /* 输入已是 UTF-8，直接复制 */
+    if (cp == CP_UTF8) {                 /* 入力がすでに UTF-8 ならそのままコピー */
         strncpy(out, in, out_size - 1);
         out[out_size - 1] = 0;
         return;

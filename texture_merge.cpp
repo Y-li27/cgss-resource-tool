@@ -1,6 +1,6 @@
-// texture_merge.cpp: CGSS Spine 的 RGB + A8 双贴图合并（GDI+）
-// tex.png 完全不透明（RGB），透明通道在 tex_A8.png。
-// 浏览器预览用 canvas 合成；Spine 编辑器只认单张贴图，这里用 GDI+ 合成一张。
+// texture_merge.cpp: CGSS Spine の RGB + A8 二枚テクスチャ合成（GDI+）
+// tex.png は完全不透明（RGB）。アルファチャンネルは tex_A8.png にある。
+// ブラウザプレビューは canvas で合成。Spine エディタは単一テクスチャしか見ないので、ここで GDI+ により1枚に合成する。
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -64,7 +64,7 @@ static int merge_one(const wchar_t *dir, const wchar_t *a8name){
     }
     UINT w = bmpBase->GetWidth(), h = bmpBase->GetHeight();
     if (bmpA8->GetWidth() != w || bmpA8->GetHeight() != h){
-        printf("  %ls 与 %ls 尺寸不一致，跳过合并\n", basename, a8name);
+        printf("  %ls と %ls のサイズが一致しないため、合成をスキップ\n", basename, a8name);
         delete bmpBase; delete bmpA8;
         GdiplusShutdown(token);
         return 0;
@@ -104,13 +104,13 @@ static int merge_one(const wchar_t *dir, const wchar_t *a8name){
                 wchar_t *dot = wcsrchr(merged, L'.');
                 if (dot) wcscpy(dot, L"_merged.png");
                 if (mergedBmp.Save(merged, &clsid, NULL) == Ok){
-                    /* 复制 atlas 并把页面文件名改成 merged */
+                    /* atlas をコピーし、ページのファイル名を merged に変える */
                     wchar_t atlas_name[512];
                     wcscpy(atlas_name, basename);
                     wchar_t *d2 = wcsrchr(atlas_name, L'.');
                     if (d2) wcscpy(d2, L".atlas");
                     swprintf(atlas, 1300, L"%ls\\%ls", dir, atlas_name);
-                    /* 兼容 AssetStudio 导出的 .atlas.asset 命名 */
+                    /* AssetStudio 書き出しの .atlas.asset 名にも対応 */
                     if (GetFileAttributesW(atlas) == INVALID_FILE_ATTRIBUTES){
                         wchar_t atlas_name2[512];
                         wcscpy(atlas_name2, basename);
@@ -144,7 +144,7 @@ static int merge_one(const wchar_t *dir, const wchar_t *a8name){
                     }
                     if (fin) fclose(fin);
                     if (fout) fclose(fout);
-                    printf("  已合并透明度：%ls + %ls -> %ls\n", basename, a8name, merged);
+                    printf("  透明度を合成: %ls + %ls -> %ls\n", basename, a8name, merged);
                     result = 1;
                 }
             }
@@ -169,7 +169,7 @@ int merge_a8_textures_in_dir(const wchar_t *dir){
     return n;
 }
 
-/* ---------------- 贴纸 PNG 裁剪 ---------------- */
+/* ---------------- ステッカー PNG トリミング ---------------- */
 int crop_png_region(const wchar_t *src_png, int x, int y, int w, int h,
                     int rotate, const wchar_t *dst_png){
     if (!src_png || !dst_png || w <= 0 || h <= 0) return 0;
@@ -189,7 +189,7 @@ int crop_png_region(const wchar_t *src_png, int x, int y, int w, int h,
     }
     UINT sw = src->GetWidth(), sh = src->GetHeight();
     if (x < 0 || y < 0 || (UINT)(x + w) > sw || (UINT)(y + h) > sh){
-        printf("  裁剪区域超出贴图范围 %ls (%d,%d %dx%d / %ux%u)\n",
+        printf("  トリミング範囲がテクスチャ外です %ls (%d,%d %dx%d / %ux%u)\n",
                src_png, x, y, w, h, sw, sh);
         delete src;
         GdiplusShutdown(token);
@@ -242,7 +242,7 @@ int crop_atlas_regions(const wchar_t *atlas_path, const wchar_t *png_path,
     buf[sz] = 0;
     fclose(f);
 
-    /* 每个区域: [index, rotate, xy, size]；atlas 区域从 1 开始编号 */
+    /* 各領域: [index, rotate, xy, size]。atlas 領域は 1 から番号付け */
     int xs[32] = {0}, ys[32] = {0}, ws[32] = {0}, hs[32] = {0}, rt[32] = {0}, valid[32] = {0};
     int cur = -1;
     char line[512];

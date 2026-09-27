@@ -1,4 +1,4 @@
-// unpack_res.c: 角色资源解包（卡面/背景/卡面Spina动画/3d照片/spine -> png/数据）
+// unpack_res.c: キャラリソースのアンパック（カードイラスト/背景/カードイラストSpinaアニメ/3Dフォト/spine -> png/データ）
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -17,7 +17,7 @@ typedef struct {
     char folder_name[256];
     char sub[64];
     int done;
-    int spine_sub;   /* 卡面Spina动画/live2d：解包到独立 spine 子文件夹 */
+    int spine_sub;   /* カードイラストSpinaアニメ/live2d: 独立した spine サブフォルダへアンパック */
 } ResUnpackItem;
 
 static void scan_res_dir(const wchar_t *chara_dir, const wchar_t *sub, const char *sub_u8,
@@ -44,9 +44,9 @@ static void scan_res_dir(const wchar_t *chara_dir, const wchar_t *sub, const cha
     FindClose(h);
 }
 
-/* 把共享骨架包自带的模板皮肤（卯月/杏示例）挪到子文件夹，避免和卡自己的小人混在一起 */
+/* 共有スケルトンに同梱のテンプレートスキン（卯月/杏の例）をサブフォルダへ移し、カード自身のSDキャラと混ざらないようにする */
 static void move_shared_template_samples(const wchar_t *dir){
-    /* 需要挪走的文件前缀（共享骨架包 SPSprachen_N/s 的贴图与图集；骨架本体保留） */
+    /* 移動するファイル（共有スケルトン SPSprachen_N/s のテクスチャとアトラス。スケルトン本体は残す） */
     static const wchar_t *samples[] = {
         L"SPSprachen_N.png", L"SPSprachen_N.atlas", L"SPSprachen_N.atlas.asset",
         L"SPSprachen_N.atlas.atlas", L"SPSprachen_N_Atlas.json", L"SPSprachen_N_SkeletonData.json",
@@ -55,7 +55,7 @@ static void move_shared_template_samples(const wchar_t *dir){
         L"SPSprachen_s.atlas.atlas", L"SPSprachen_s_Atlas.json", L"SPSprachen_s_SkeletonData.json",
     };
     wchar_t subdir[1300];
-    swprintf(subdir, 1300, L"%ls\\模板示例(卯月杏)", dir);
+    swprintf(subdir, 1300, L"%ls\\テンプレート例(卯月杏)", dir);
     mkdirs(subdir);
     int moved = 0;
     for (int i = 0; i < (int)(sizeof samples / sizeof samples[0]); i++){
@@ -65,7 +65,7 @@ static void move_shared_template_samples(const wchar_t *dir){
         swprintf(dst, 1300, L"%ls\\%ls", subdir, samples[i]);
         if (MoveFileW(src, dst)) moved++;
     }
-    /* N 骨架是旧卡小人用的（旧卡用 s 会"大头"），在 spine 根目录也保留一份方便使用 */
+    /* N スケルトンは旧カードのSDキャラ用（旧カードで s を使うと「大頭」になる）。spine ルートにも1部残して使いやすくする */
     static const wchar_t *keepN[] = {
         L"SPSprachen_N.skel", L"SPSprachen_N.skel.asset",
         L"SPSprachen_N.json", L"SPSprachen_N_v38.json"
@@ -79,10 +79,10 @@ static void move_shared_template_samples(const wchar_t *dir){
             CopyFileW(src, dst, FALSE);
     }
     if (moved > 0)
-        printf("  已把共享骨架的模板示例(卯月/杏)移到 模板示例(卯月杏)\\ 子文件夹\n");
+        printf("  共有スケルトンのテンプレート例(卯月/杏)を テンプレート例(卯月杏)\\ サブフォルダへ移しました\n");
 }
 
-/* 解包单个角色资源包：导出 png/数据文件到原目录 */
+/* キャラリソースを1つアンパックし、png/データファイルを元のディレクトリへ書き出す */
 
 static int extract_res_one(const ResUnpackItem *it, int idx){
     wchar_t exedir[1024], outdir[1200];
@@ -96,17 +96,17 @@ static int extract_res_one(const ResUnpackItem *it, int idx){
     wchar_t exe[1200], cmd[3000];
     find_assetstudio(exe, 1200);
     if (!exe[0]){
-        printf("找不到 AssetStudio.CLI.exe，请把 AssetStudio 文件夹放到程序同目录\n");
+        printf("AssetStudio.CLI.exe が見つかりません。AssetStudio フォルダをプログラムと同じディレクトリに置いてください\n");
         return 0;
     }
     swprintf(cmd, 3000, L"\"%ls\" \"%ls\" \"%ls\" --game Normal", exe, it->path, outdir);
-    printf("解包 %s\\%s ...\n", it->sub, it->name);
+    printf("アンパック %s\\%s ...\n", it->sub, it->name);
     STARTUPINFOW si;
     PROCESS_INFORMATION pi;
     memset(&si, 0, sizeof si); si.cb = sizeof si;
     memset(&pi, 0, sizeof pi);
     if (!CreateProcessW(NULL, cmd, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi)){
-        printf("启动 AssetStudio.CLI 失败 err=%lu\n", (unsigned long)GetLastError());
+        printf("AssetStudio.CLI の起動に失敗 err=%lu\n", (unsigned long)GetLastError());
         return 0;
     }
     WaitForSingleObject(pi.hProcess, INFINITE);
@@ -114,7 +114,7 @@ static int extract_res_one(const ResUnpackItem *it, int idx){
     CloseHandle(pi.hProcess);
 
     int n = 0;
-    /* 导出目标：spine 包单独放一个 spine 子文件夹，方便找 */
+    /* 書き出し先: spine パックは探しやすいよう spine サブフォルダに分ける */
     wchar_t destdir[1300];
     wcscpy(destdir, it->dir);
     if (it->spine_sub){
@@ -129,11 +129,11 @@ static int extract_res_one(const ResUnpackItem *it, int idx){
         n += copy_dir(outdir, L"MonoBehaviour", destdir, L"*.json");
     n += copy_dir(outdir, L"AudioClip", destdir, L"*");
 
-    /* 卡面Spina动画/live2d 解出的 .skel 自动转一份 .json，方便浏览器预览 */
+    /* カードイラストSpinaアニメ/live2d の .skel を .json に自動変換し、ブラウザプレビューしやすくする */
     int cn = convert_skels_in_dir(destdir);
     if (cn > 0)
-        printf("  已转换 %d 个 skel 为 json（3.6 + 3.8.75，可用主菜单4预览）\n", cn);
-    /* atlas 导出名为 *.atlas.asset，再复制一份 *.atlas 方便 Spine 编辑器直接打开 */
+        printf("  skel %d 個を json に変換（3.6 + 3.8.75、メインメニュー4でプレビュー可）\n", cn);
+    /* atlas の書き出し名は *.atlas.asset。Spine エディタで直接開けるよう *.atlas もコピーする */
     {
         wchar_t apat[1300];
         swprintf(apat, 1300, L"%ls\\*.atlas.asset", destdir);
@@ -145,7 +145,7 @@ static int extract_res_one(const ResUnpackItem *it, int idx){
                 wchar_t asrc[1300], adst[1300];
                 swprintf(asrc, 1300, L"%ls\\%ls", destdir, afd.cFileName);
                 wcscpy(adst, asrc);
-                /* 去掉尾部 .asset：SPC301346.atlas.asset -> SPC301346.atlas */
+                /* 末尾の .asset を除去: SPC301346.atlas.asset -> SPC301346.atlas */
                 size_t alen = wcslen(adst);
                 if (alen > 6 && _wcsicmp(adst + alen - 6, L".asset") == 0)
                     adst[alen - 6] = 0;
@@ -154,7 +154,7 @@ static int extract_res_one(const ResUnpackItem *it, int idx){
             } while (FindNextFileW(ah, &afd));
             FindClose(ah);
         }
-        /* 清理旧版本误生成的 *.atlas.atlas（内容与 *.atlas 相同） */
+        /* 旧版が誤生成した *.atlas.atlas を掃除（中身は *.atlas と同じ） */
         {
             wchar_t apat2[1300];
             swprintf(apat2, 1300, L"%ls\\*.atlas.atlas", destdir);
@@ -176,13 +176,13 @@ static int extract_res_one(const ResUnpackItem *it, int idx){
             }
         }
     }
-    /* 合成 RGB + A8 贴图，并生成引用它的 v38 atlas（Spine 3.8.75 编辑器用） */
+    /* RGB + A8 テクスチャを合成し、それを参照する v38 atlas を生成（Spine 3.8.75 エディタ用） */
     if (it->spine_sub){
         int mn = merge_a8_textures_in_dir(destdir);
         if (mn > 0)
-            printf("  已合成 %d 张贴图（3.8.75 编辑器用）\n", mn);
+            printf("  テクスチャ %d 枚を合成（3.8.75 エディタ用）\n", mn);
     }
-    /* 共享骨架包自带的模板皮肤（卯月/杏示例）挪到子文件夹 */
+    /* 共有スケルトン同梱のテンプレートスキン（卯月/杏の例）をサブフォルダへ移す */
     if (!it->spine_sub && strcmp(it->sub, "spine") == 0)
         move_shared_template_samples(destdir);
 
@@ -192,8 +192,8 @@ static int extract_res_one(const ResUnpackItem *it, int idx){
     FILE *mf = _wfopen(marker, L"wb");
     if (mf){ fputs("done", mf); fclose(mf); }
 
-    if (n == 0) printf("  未生成可复制文件（可能包里没有图片/数据）\n");
-    printf("  完成，导出 %d 个文件\n", n);
+    if (n == 0) printf("  コピーできるファイルがありません（パックに画像/データがない可能性）\n");
+    printf("  完了。%d 個のファイルを書き出し\n", n);
     return n;
 }
 
@@ -206,12 +206,12 @@ int unpack_resources_main(void){
     wcscat(wroot, L"\\CGSS_DOWN");
 
     ResUnpackItem *items = (ResUnpackItem*)malloc(sizeof(ResUnpackItem) * MAX_RES_ITEMS);
-    if (!items){ fprintf(stderr, "内存不足\n"); return 1; }
+    if (!items){ fprintf(stderr, "メモリ不足\n"); return 1; }
     int n = 0;
 
-    /* 角色目录下的子目录：卡面/背景/卡面Spina动画(兼容旧名live2d)/3d照片/spine */
-    const wchar_t *subs[6] = { L"卡面", L"背景", L"卡面Spina动画", L"live2d", L"3d照片", L"spine" };
-    const char *subs_u8[6] = { "卡面", "背景", "卡面Spina动画", "live2d(旧)", "3d照片", "spine" };
+    /* キャラディレクトリ配下: カードイラスト/背景/カードイラストSpinaアニメ（旧名 live2d 互換）/3Dフォト/spine */
+    const wchar_t *subs[6] = { L"カードイラスト", L"背景", L"カードイラストSpinaアニメ", L"live2d", L"3Dフォト", L"spine" };
+    const char *subs_u8[6] = { "カードイラスト", "背景", "カードイラストSpinaアニメ", "live2d(旧)", "3Dフォト", "spine" };
 
     wchar_t pat[1300];
     swprintf(pat, 1300, L"%ls\\*", wroot);
@@ -232,7 +232,7 @@ int unpack_resources_main(void){
     }
 
     if (n == 0){
-        printf("CGSS_DOWN 里没找到卡面/背景/卡面Spina动画/3d照片/spine 资源\n");
+        printf("CGSS_DOWN にカードイラスト/背景/カードイラストSpinaアニメ/3Dフォト/spine リソースがありません\n");
         free(items);
         return 1;
     }
@@ -240,10 +240,10 @@ int unpack_resources_main(void){
     int ndone = 0;
     for (int i = 0; i < n; i++){
         printf("[%d] %s : %s\\%s %s\n", i + 1, items[i].folder_name, items[i].sub, items[i].name,
-               items[i].done ? "[已解包]" : "[待解包]");
+               items[i].done ? "[アンパック済]" : "[未アンパック]");
         if (items[i].done) ndone++;
     }
-    printf("共 %d 个资源包，已解包 %d 个（a=解包全部未解包的，输编号可强制重解，0=返回）：", n, ndone);
+    printf("リソースパック %d 個、アンパック済 %d 個（a=未処理をすべて、番号で強制再アンパック、0=戻る）: ", n, ndone);
     char buf[128];
     if (fgets(buf, sizeof buf, stdin) == NULL){ free(items); return 1; }
     int *sel = (int*)malloc(sizeof(int) * n);
@@ -253,14 +253,14 @@ int unpack_resources_main(void){
         nsel = 0;
         for (int i = 0; i < n; i++)
             if (!items[i].done) sel[nsel++] = i + 1;
-        if (nsel == 0){ printf("都已解包，无需处理\n"); free(sel); free(items); return 0; }
+        if (nsel == 0){ printf("すべてアンパック済みです。処理は不要です\n"); free(sel); free(items); return 0; }
     }
     if (nsel == 0){ free(sel); free(items); return 1; }
 
     for (int s = 0; s < nsel; s++){
         extract_res_one(&items[sel[s] - 1], s);
     }
-    printf("全部完成\n");
+    printf("すべて完了\n");
     free(sel);
     free(items);
     return 0;

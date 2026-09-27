@@ -1,14 +1,14 @@
-/* browse.c: 资源查找 + 下载 整合模块
+/* browse.c: リソース検索 + ダウンロード 統合モジュール
  *
- * 流程(两段式):
- *   1. 找目标: 输入名称(模糊)或 id -> pager 多选要处理的对象
- *   2. 选资源: 自动拼出该对象的所有资源 -> pager 多选 -> 批量下载
+ * 流れ(2段階):
+ *   1. 対象を探す: 名称を入力(部分一致)または id -> pager で処理対象を複数選択
+ *   2. リソースを選ぶ: その対象の全リソースを自動で組み立て -> pager で複数選択 -> 一括ダウンロード
  *
- * 取代原来分开的"查找"和"下载"两个菜单:
- *  - 通用/BGM/谱面/舞台/动作/模型/Spine/贴纸: 直接搜 manifest 资源名
- *  - 歌曲: 歌名模糊 或 歌曲id
- *  - 卡片: 卡名/角色名模糊 或 卡id/角色id
- *  - 语音: 卡名模糊 或 卡id
+ * 以前分かれていた「検索」と「ダウンロード」の2メニューを置き換える:
+ *  - 汎用/BGM/譜面/ステージ/モーション/モデル/Spine/ステッカー: manifest のリソース名を直接検索
+ *  - 楽曲: 曲名の部分一致 または 楽曲id
+ *  - カード: カード名/キャラ名の部分一致 または カードid/キャラid
+ *  - ボイス: カード名の部分一致 または カードid
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -25,15 +25,15 @@
 #define DB_PATH "master.mdb"
 #define MAX_ITEMS 1024
 
-/* 一条可下载资源 */
+/* ダウンロード可能なリソース1件 */
 typedef struct {
-    char disp[128];      /* pager 里显示的名字 */
-    char name[256];      /* 清单里的资源名 */
+    char disp[128];      /* pager に表示する名前 */
+    char name[256];      /* マニフェスト内のリソース名 */
     char hash[64];
-    wchar_t sub[64];     /* CGSS_DOWN 下的子目录 */
+    wchar_t sub[64];     /* CGSS_DOWN 以下のサブディレクトリ */
 } BItem;
 
-/* 查资源名对应的 hash, 成功返回 0 */
+/* リソース名に対応する hash を照会。成功なら 0 を返す */
 static int get_hash(sqlite3 *rdb, const char *name, char *hash_out, int n){
     sqlite3_stmt *stmt = NULL;
     if (sqlite3_prepare_v2(rdb, "SELECT hash FROM manifests WHERE name=?",
@@ -49,12 +49,12 @@ static int get_hash(sqlite3 *rdb, const char *name, char *hash_out, int n){
     return rc;
 }
 
-/* 已知资源名 -> 加入待选列表(清单里没有就提示跳过) */
+/* 既知のリソース名 -> 候補リストへ追加(マニフェストに無ければスキップを表示) */
 static void add_res(sqlite3 *rdb, BItem *items, int *n,
                     const char *name, const wchar_t *sub){
     if (*n >= MAX_ITEMS) return;
     if (get_hash(rdb, name, items[*n].hash, 64) != 0){
-        printf("清单中无 %s\n", name);
+        printf("マニフェストに %s がありません\n", name);
         return;
     }
     snprintf(items[*n].name, sizeof items[*n].name, "%s", name);
@@ -63,7 +63,7 @@ static void add_res(sqlite3 *rdb, BItem *items, int *n,
     (*n)++;
 }
 
-/* 把待选列表转成 pager 用的 dbdef 数组(tmp 需要 n+1 项, 最后一行 END) */
+/* 候補リストを pager 用の dbdef 配列へ変換(tmp は n+1 要素、最終行は END) */
 static void make_menu(dbdef *tmp, BItem *items, int n){
     for (int i = 0; i < n; i++){
         snprintf(tmp[i].name, sizeof tmp[i].name, "%s", items[i].disp);
@@ -75,7 +75,7 @@ static void make_menu(dbdef *tmp, BItem *items, int n){
     tmp[n].state = 0;
 }
 
-/* 收集 pager 里勾选的下标, 返回个数 */
+/* pager で選択されたインデックスを集め、個数を返す */
 static int collect(const dbdef *tmp, int n, int *picked){
     int c = 0;
     for (int i = 0; i < n; i++)
@@ -89,7 +89,7 @@ static int is_sticker_resource(const char *name)
     return name && strncmp(name, prefix, sizeof(prefix) - 1) == 0;
 }
 
-/* 下载一条到 wroot\sub；贴纸下载成功后立即进入统一后处理流程。 */
+/* 1件を wroot\sub へダウンロード。ステッカーは成功後すぐに共通の後処理へ入る。 */
 static void download_item(const BItem *it, const wchar_t *wroot){
     wchar_t wsub[1300];
 
@@ -97,15 +97,15 @@ static void download_item(const BItem *it, const wchar_t *wroot){
         wchar_t sticker_root[1300], raw_dir[1300];
         wchar_t spine_dir[1300], png_dir[1300];
 
-        swprintf(sticker_root, 1300, L"%ls\\贴纸", wroot);
-        swprintf(raw_dir, 1300, L"%ls\\原文件unity3d", sticker_root);
-        swprintf(spine_dir, 1300, L"%ls\\spine文件", sticker_root);
-        swprintf(png_dir, 1300, L"%ls\\贴纸PNG", sticker_root);
+        swprintf(sticker_root, 1300, L"%ls\\ステッカー", wroot);
+        swprintf(raw_dir, 1300, L"%ls\\元ファイルunity3d", sticker_root);
+        swprintf(spine_dir, 1300, L"%ls\\spineファイル", sticker_root);
+        swprintf(png_dir, 1300, L"%ls\\ステッカーPNG", sticker_root);
         mkdirs(raw_dir);
         mkdirs(spine_dir);
         mkdirs(png_dir);
 
-        printf("下载 %s ...\n", it->name);
+        printf("ダウンロード %s ...\n", it->name);
         if (dl_one(it->name, it->hash, raw_dir) == 0) {
             sticker_unpack_file(it->name, raw_dir, spine_dir, png_dir, 0);
         }
@@ -114,15 +114,15 @@ static void download_item(const BItem *it, const wchar_t *wroot){
 
     swprintf(wsub, 1300, L"%ls\\%ls", wroot, it->sub);
     mkdirs(wsub);
-    printf("下载 %s ...\n", it->name);
+    printf("ダウンロード %s ...\n", it->name);
     dl_one(it->name, it->hash, wsub);
 }
 
-/* 下面几个类别要复用"选歌曲/选卡片", 先声明(定义在后面) */
+/* 以下の種別は「楽曲選択/カード選択」を再利用する。先に宣言(定義は後ろ) */
 static int choose_songs(sqlite3 *db, int *ids, int max);
 static int choose_cards(sqlite3 *db, int *ids, int max);
 
-/* 查歌名 */
+/* 曲名を照会 */
 static void get_song_name(sqlite3 *db, int id, char *out, int n){
     out[0] = 0;
     sqlite3_stmt *stmt = NULL;
@@ -135,7 +135,7 @@ static void get_song_name(sqlite3 *db, int id, char *out, int n){
     }
 }
 
-/* 建 CGSS_DOWN\<id><名字> 目录 */
+/* CGSS_DOWN\<id><名前> ディレクトリを作成 */
 static void make_dl_folder(int id, const char *name, wchar_t *wfolder, int n){
     char folder[512];
     snprintf(folder, sizeof folder, "%d%s", id, name);
@@ -146,28 +146,28 @@ static void make_dl_folder(int id, const char *name, wchar_t *wfolder, int n){
     mkdirs(wfolder);
 }
 
-/* 通用结尾: 多选 -> 批量下载到 wfolder */
+/* 共通の締め: 複数選択 -> wfolder へ一括ダウンロード */
 static int pick_and_download(const char *title, sqlite3 *db, sqlite3 *rdb,
                              BItem *items, int n, const wchar_t *wfolder){
-    if (n == 0){ printf("没有可下载的资源\n"); return 0; }
+    if (n == 0){ printf("ダウンロードできるリソースがありません\n"); return 0; }
     static dbdef tmp[MAX_ITEMS + 1];
     static int picked[MAX_ITEMS];
     make_menu(tmp, items, n);
     int rc = pager_picks(title, tmp, db, rdb, 1);
-    if (rc <= 0){ if (rc == -1) printf("已取消\n"); return 0; }
+    if (rc <= 0){ if (rc == -1) printf("キャンセルしました\n"); return 0; }
     int c = collect(tmp, n, picked);
     for (int i = 0; i < c; i++)
         download_item(&items[picked[i]], wfolder);
-    printf("共下载 %d 个 -> %ls\n", c, wfolder);
+    printf("合計 %d 件をダウンロード -> %ls\n", c, wfolder);
     return c;
 }
 
-/* ================== 通用: 搜 manifest 资源名 ================== */
+/* ================== 汎用: manifest のリソース名を検索 ================== */
 
 static void browse_manifest(sqlite3 *rdb, const char *title,
                             const char *extra, const wchar_t *subdir){
     char buf[256];
-    printf("输入关键词(留空=全部): ");
+    printf("キーワードを入力(空欄=すべて): ");
     if (fgets(buf, sizeof buf, stdin) == NULL) return;
     buf[strcspn(buf, "\r\n")] = 0;
 
@@ -186,7 +186,7 @@ static void browse_manifest(sqlite3 *rdb, const char *title,
 
     sqlite3_stmt *stmt = NULL;
     if (sqlite3_prepare_v2(rdb, sql, -1, &stmt, NULL) != SQLITE_OK){
-        fprintf(stderr, "SQL错误: %s\n", sqlite3_errmsg(rdb));
+        fprintf(stderr, "SQLエラー: %s\n", sqlite3_errmsg(rdb));
         return;
     }
     sqlite3_bind_text(stmt, 1, like, -1, SQLITE_TRANSIENT);
@@ -204,42 +204,42 @@ static void browse_manifest(sqlite3 *rdb, const char *title,
     }
     sqlite3_finalize(stmt);
 
-    if (n == 0){ printf("没有匹配的资源\n"); return; }
-    printf("匹配 %d 个(Space勾选, A全选, Enter下载):\n", n);
+    if (n == 0){ printf("一致するリソースがありません\n"); return; }
+    printf("一致 %d 件(Spaceで選択, Aで全選択, Enterでダウンロード):\n", n);
 
     static dbdef tmp[MAX_ITEMS + 1];
     make_menu(tmp, items, n);
     int rc = pager_picks(title, tmp, NULL, rdb, 1);
-    if (rc <= 0){ if (rc == -1) printf("已取消\n"); return; }
+    if (rc <= 0){ if (rc == -1) printf("キャンセルしました\n"); return; }
 
     static int picked[MAX_ITEMS] ;
-    int c = collect(tmp, n, picked);    //返回勾选数量
+    int c = collect(tmp, n, picked);    // 選択数を返す
     wchar_t wroot[1024];
     get_dl_root(wroot, 1024);
     for (int i = 0; i < c; i++)
         download_item(&items[picked[i]], wroot);
-    printf("共下载 %d 个 -> %ls\n", c, wroot);
+    printf("合計 %d 件をダウンロード -> %ls\n", c, wroot);
 }
 
-/* 每个类别一个小包装(签名必须和 dbdef.func 一致) */
+/* 種別ごとの薄いラッパー(シグネチャは dbdef.func と一致している必要がある) */
 static int browse_all(sqlite3 *db, sqlite3 *rdb){
     (void)db;
-    browse_manifest(rdb, "通用资源搜索", NULL, L"自定义");
+    browse_manifest(rdb, "汎用リソース検索", NULL, L"カスタム");
     return 0;
 }
 static int browse_bgm(sqlite3 *db, sqlite3 *rdb){
     (void)db;
-    browse_manifest(rdb, "BGM搜索", "AND name LIKE '%bgm%'", L"BGM");
+    browse_manifest(rdb, "BGM検索", "AND name LIKE '%bgm%'", L"BGM");
     return 0;
 }
 static int browse_sticker(sqlite3 *db, sqlite3 *rdb){
     (void)db;
-    browse_manifest(rdb, "贴纸搜索",
-                    "AND name LIKE 'spine_motion_sticker%'", L"贴纸");
+    browse_manifest(rdb, "ステッカー検索",
+                    "AND name LIKE 'spine_motion_sticker%'", L"ステッカー");
     return 0;
 }
 
-/* 谱面: 先按歌名/id 找歌, 再列出这首歌的所有谱面 */
+/* 譜面: 先に曲名/id で楽曲を探し、その曲の全譜面を列挙 */
 static int browse_chart(sqlite3 *db, sqlite3 *rdb){
     int ids[32];
     int nids = choose_songs(db, ids, 32);
@@ -248,7 +248,7 @@ static int browse_chart(sqlite3 *db, sqlite3 *rdb){
         int id = ids[s];
         char sname[128];
         get_song_name(db, id, sname, sizeof sname);
-        printf("\n========== %d|%s 的谱面 ==========\n", id, sname);
+        printf("\n========== %d|%s の譜面 ==========\n", id, sname);
 
         static BItem items[MAX_ITEMS];
         int n = 0;
@@ -262,7 +262,7 @@ static int browse_chart(sqlite3 *db, sqlite3 *rdb){
             while (sqlite3_step(lstmt) == SQLITE_ROW && n < MAX_ITEMS){
                 int live_id = sqlite3_column_int(lstmt, 0);
                 snprintf(res, sizeof res, "musicscores_m%d.bdb", live_id);
-                add_res(rdb, items, &n, res, L"谱面");
+                add_res(rdb, items, &n, res, L"譜面");
                 if (n > 0)
                     snprintf(items[n-1].disp, sizeof items[n-1].disp,
                              "live %d | diff %d/%d/%d/%d", live_id,
@@ -275,13 +275,13 @@ static int browse_chart(sqlite3 *db, sqlite3 *rdb){
         }
         wchar_t wfolder[1024];
         make_dl_folder(id, sname, wfolder, 1024);
-        pick_and_download("谱面资源(空格勾选, Enter下载)", db, rdb,
+        pick_and_download("譜面リソース(Spaceで選択, Enterでダウンロード)", db, rdb,
                           items, n, wfolder);
     }
     return 0;
 }
 
-/* 舞台: 先按歌名/id 找歌, 再列出这首歌的舞台 */
+/* ステージ: 先に曲名/id で楽曲を探し、その曲のステージを列挙 */
 static int browse_stage(sqlite3 *db, sqlite3 *rdb){
     int ids[32];
     int nids = choose_songs(db, ids, 32);
@@ -290,7 +290,7 @@ static int browse_stage(sqlite3 *db, sqlite3 *rdb){
         int id = ids[s];
         char sname[128];
         get_song_name(db, id, sname, sizeof sname);
-        printf("\n========== %d|%s 的舞台 ==========\n", id, sname);
+        printf("\n========== %d|%s のステージ ==========\n", id, sname);
 
         static BItem items[MAX_ITEMS];
         int n = 0;
@@ -305,25 +305,25 @@ static int browse_stage(sqlite3 *db, sqlite3 *rdb){
                 int live_bg = sqlite3_column_int(lstmt, 1);
                 if (live_bg > 0){
                     snprintf(res, sizeof res, "3d_stage_%d.unity3d", live_bg);
-                    add_res(rdb, items, &n, res, L"舞台");
+                    add_res(rdb, items, &n, res, L"ステージ");
                     if (n > 0)
                         snprintf(items[n-1].disp, sizeof items[n-1].disp,
-                                 "live %d | 舞台 %d", live_id, live_bg);
+                                 "live %d | ステージ %d", live_id, live_bg);
                     snprintf(res, sizeof res, "3d_stage_%d_hq.unity3d", live_bg);
-                    add_res(rdb, items, &n, res, L"舞台");
+                    add_res(rdb, items, &n, res, L"ステージ");
                 }
             }
             sqlite3_finalize(lstmt);
         }
         wchar_t wfolder[1024];
         make_dl_folder(id, sname, wfolder, 1024);
-        pick_and_download("舞台资源(空格勾选, Enter下载)", db, rdb,
+        pick_and_download("ステージリソース(Spaceで選択, Enterでダウンロード)", db, rdb,
                           items, n, wfolder);
     }
     return 0;
 }
 
-/* 动作: 先按歌名/id 找歌, 再列出这首歌的动作 */
+/* モーション: 先に曲名/id で楽曲を探し、その曲のモーションを列挙 */
 static int browse_action(sqlite3 *db, sqlite3 *rdb){
     int ids[32];
     int nids = choose_songs(db, ids, 32);
@@ -332,7 +332,7 @@ static int browse_action(sqlite3 *db, sqlite3 *rdb){
         int id = ids[s];
         char sname[128];
         get_song_name(db, id, sname, sizeof sname);
-        printf("\n========== %d|%s 的动作 ==========\n", id, sname);
+        printf("\n========== %d|%s のモーション ==========\n", id, sname);
 
         static BItem items[MAX_ITEMS];
         int n = 0;
@@ -349,20 +349,20 @@ static int browse_action(sqlite3 *db, sqlite3 *rdb){
                 snprintf(items[n].hash, sizeof items[n].hash, "%s",
                          (const char*)sqlite3_column_text(mstmt, 1));
                 snprintf(items[n].disp, sizeof items[n].disp, "%s", items[n].name);
-                wcscpy(items[n].sub, L"动作");
+                wcscpy(items[n].sub, L"モーション");
                 n++;
             }
             sqlite3_finalize(mstmt);
         }
         wchar_t wfolder[1024];
         make_dl_folder(id, sname, wfolder, 1024);
-        pick_and_download("动作资源(空格勾选, Enter下载)", db, rdb,
+        pick_and_download("モーションリソース(Spaceで選択, Enterでダウンロード)", db, rdb,
                           items, n, wfolder);
     }
     return 0;
 }
 
-/* 3D模型: 按卡名/角色名/id 找卡, 再列出模型资源 */
+/* 3Dモデル: カード名/キャラ名/id でカードを探し、モデルリソースを列挙 */
 static int browse_model(sqlite3 *db, sqlite3 *rdb){
     int ids[64];
     int nids = choose_cards(db, ids, 64);
@@ -382,42 +382,42 @@ static int browse_model(sqlite3 *db, sqlite3 *rdb){
         int chara_id = sqlite3_column_int(stmt, 2);
         int dress_id = sqlite3_column_int(stmt, 3);
         sqlite3_finalize(stmt);
-        printf("\n========== %d|%s 的3D模型 ==========\n", card_id, cname);
+        printf("\n========== %d|%s の3Dモデル ==========\n", card_id, cname);
 
         static BItem items[MAX_ITEMS];
         int n = 0;
         char res[256];
         if (dress_id > 0){
             snprintf(res, sizeof res, "3d_chara_body_%04d.unity3d", dress_id);
-            add_res(rdb, items, &n, res, L"3D模型");
+            add_res(rdb, items, &n, res, L"3Dモデル");
             snprintf(res, sizeof res, "3d_chara_head_%04d_%04d_hq.unity3d",
                      chara_id, dress_id);
             if (get_hash(rdb, res, items[n].hash, 64) != 0)
                 snprintf(res, sizeof res, "3d_chara_head_%04d_%04d.unity3d",
                          chara_id, dress_id);
-            add_res(rdb, items, &n, res, L"3D模型");
+            add_res(rdb, items, &n, res, L"3Dモデル");
             snprintf(res, sizeof res, "3d_md_body%04d_hq.unity3d", dress_id);
             if (get_hash(rdb, res, items[n].hash, 64) != 0)
                 snprintf(res, sizeof res, "3d_md_body%04d.unity3d", dress_id);
-            add_res(rdb, items, &n, res, L"3D模型");
+            add_res(rdb, items, &n, res, L"3Dモデル");
             const char *tx[3] = {"hq","multi","spec"};
             for (int i = 0; i < 3; i++){
                 snprintf(res, sizeof res, "3d_tx_body%04d_%s.unity3d",
                          dress_id, tx[i]);
-                add_res(rdb, items, &n, res, L"3D模型");
+                add_res(rdb, items, &n, res, L"3Dモデル");
             }
         } else {
-            printf("该卡没有专属服装, 没有3D模型\n");
+            printf("このカードには専用衣装がなく、3Dモデルもありません\n");
         }
         wchar_t wfolder[1024];
         make_dl_folder(card_id, cname, wfolder, 1024);
-        pick_and_download("3D模型资源(空格勾选, Enter下载)", db, rdb,
+        pick_and_download("3Dモデルリソース(Spaceで選択, Enterでダウンロード)", db, rdb,
                           items, n, wfolder);
     }
     return 0;
 }
 
-/* Spine: 按卡名/角色名/id 找卡, 再列出 Spine 资源 */
+/* Spine: カード名/キャラ名/id でカードを探し、Spine リソースを列挙 */
 static int browse_spine(sqlite3 *db, sqlite3 *rdb){
     int ids[64];
     int nids = choose_cards(db, ids, 64);
@@ -434,7 +434,7 @@ static int browse_spine(sqlite3 *db, sqlite3 *rdb){
                          (const char*)sqlite3_column_text(stmt, 1));
             sqlite3_finalize(stmt);
         }
-        printf("\n========== %d|%s 的Spine ==========\n", card_id, cname);
+        printf("\n========== %d|%s のSpine ==========\n", card_id, cname);
 
         static BItem items[MAX_ITEMS];
         int n = 0;
@@ -447,17 +447,17 @@ static int browse_spine(sqlite3 *db, sqlite3 *rdb){
 
         wchar_t wfolder[1024];
         make_dl_folder(card_id, cname, wfolder, 1024);
-        pick_and_download("Spine资源(空格勾选, Enter下载)", db, rdb,
+        pick_and_download("Spineリソース(Spaceで選択, Enterでダウンロード)", db, rdb,
                           items, n, wfolder);
     }
     return 0;
 }
 
-/* ================== CG影片: 搜 usm, 自动带上同 movie 的音频 ================== */
+/* ================== CGムービー: usm を検索し、同じ movie の音声を自動で付ける ================== */
 
 static int browse_cg(sqlite3 *db, sqlite3 *rdb){
     char buf[128];
-    printf("输入CG关键词(如 anivcount / movie_0029, 留空=全部): ");
+    printf("CGキーワードを入力(例 anivcount / movie_0029, 空欄=すべて): ");
     if (fgets(buf, sizeof buf, stdin) == NULL) return 0;
     buf[strcspn(buf, "\r\n")] = 0;
 
@@ -465,21 +465,21 @@ static int browse_cg(sqlite3 *db, sqlite3 *rdb){
     snprintf(like, sizeof like, "%%%s%%", buf);
 
     static dbdef tmp[513];
-    static char row_name[513][256];   /* 选中的 usm 原始资源名 */
+    static char row_name[513][256];   /* 選択した usm の元リソース名 */
     int n = 0;
     sqlite3_stmt *stmt = NULL;
     if (sqlite3_prepare_v2(rdb,
             "SELECT name FROM manifests WHERE name LIKE '%.usm' AND name LIKE ? "
             "ORDER BY name LIMIT 512",
             -1, &stmt, NULL) != SQLITE_OK){
-        fprintf(stderr, "SQL错误: %s\n", sqlite3_errmsg(rdb));
+        fprintf(stderr, "SQLエラー: %s\n", sqlite3_errmsg(rdb));
         return 0;
     }
     sqlite3_bind_text(stmt, 1, like, -1, SQLITE_TRANSIENT);
     while (sqlite3_step(stmt) == SQLITE_ROW && n < 512){
         snprintf(row_name[n], sizeof row_name[n], "%s",
                  (const char*)sqlite3_column_text(stmt, 0));
-        /* 显示名: movie_XXXX[_alt]; 2drich 则显示 2drich<id> | 歌名 */
+        /* 表示名: movie_XXXX[_alt]。2drich なら 2drich<id> | 曲名 */
         const char *p = strstr(row_name[n], "movie_");
         if (p){
             snprintf(tmp[n].name, sizeof tmp[n].name, "%s", p);
@@ -511,7 +511,7 @@ static int browse_cg(sqlite3 *db, sqlite3 *rdb){
             else
                 snprintf(tmp[n].name, sizeof tmp[n].name, "2drich%s", sid);
         } 
-        /* 针对为数不多真正的2D动画显示对应歌曲 */
+        /* 数が少ない本物の2Dアニメーションには、対応する楽曲を表示 */
         else if(strncmp(row_name[n], "m/live/high/movie", 17) == 0){
             const char *d = row_name[n] + 17;
             char sid[16] = "";
@@ -549,7 +549,7 @@ static int browse_cg(sqlite3 *db, sqlite3 *rdb){
         n++;
     }
     sqlite3_finalize(stmt);
-    if (n == 0){ printf("没有匹配的CG\n"); return 0; }
+    if (n == 0){ printf("一致するCGがありません\n"); return 0; }
 
     static int picked_idx[512];
     int np = 0;
@@ -559,8 +559,8 @@ static int browse_cg(sqlite3 *db, sqlite3 *rdb){
         snprintf(tmp[n].name, sizeof tmp[n].name, "END");
         tmp[n].func = NULL;
         tmp[n].state = 0;
-        int r = pager_picks("CG影片(空格勾选, Enter确认)", tmp, NULL, rdb, 1);
-        if (r <= 0){ if (r == -1) printf("已取消\n"); return 0; }
+        int r = pager_picks("CGムービー(Spaceで選択, Enterで確定)", tmp, NULL, rdb, 1);
+        if (r <= 0){ if (r == -1) printf("キャンセルしました\n"); return 0; }
         for (int i = 0; i < n; i++)
             if (tmp[i].state) picked_idx[np++] = i;
     }
@@ -569,7 +569,7 @@ static int browse_cg(sqlite3 *db, sqlite3 *rdb){
         int idx = picked_idx[s];
         const char *usm_name = row_name[idx];
         int is2dmovie = 0;
-        /* 提取 movie_XXXX */
+        /* movie_XXXX を抽出 */
         char movie[64] = "";
         if(strstr(usm_name, "movie_")){
             const char *pm = strstr(usm_name,"movie_"); 
@@ -598,7 +598,7 @@ static int browse_cg(sqlite3 *db, sqlite3 *rdb){
         }
         printf("\n========== %s ==========\n", usm_name);
 
-        /* 自动组合: 选中的 usm + 精确配对的音频, 不再弹第二个选择菜单 */
+        /* 自動で組み合わせ: 選択した usm + 正確にペアの音声。2つ目の選択メニューは出さない */
         static BItem items[16];
         int n2 = 0;
         char hash[64];
@@ -606,11 +606,11 @@ static int browse_cg(sqlite3 *db, sqlite3 *rdb){
             snprintf(items[n2].name, sizeof items[n2].name, "%s", usm_name);
             snprintf(items[n2].hash, sizeof items[n2].hash, "%s", hash);
             snprintf(items[n2].disp, sizeof items[n2].disp, "%s", usm_name);
-            wcscpy(items[n2].sub, L"影片");
+            wcscpy(items[n2].sub, L"ムービー");
             n2++;
         }
-        /* 配对音频: m/AnivCount/<dir>/movie_<id>.usm
-         *        -> m/bgm_anivcount_<dir>_movie_<id>.acb (同一个 dir+id) */
+        /* ペア音声: m/AnivCount/<dir>/movie_<id>.usm
+         *        -> m/bgm_anivcount_<dir>_movie_<id>.acb (同じ dir+id) */
         char dirnum[16] = "";
         {
             const char *a = strstr(usm_name, "AnivCount/");
@@ -632,11 +632,11 @@ static int browse_cg(sqlite3 *db, sqlite3 *rdb){
                 snprintf(items[n2].name, sizeof items[n2].name, "%s", cand);
                 snprintf(items[n2].hash, sizeof items[n2].hash, "%s", hash);
                 snprintf(items[n2].disp, sizeof items[n2].disp, "%s", cand);
-                wcscpy(items[n2].sub, L"音频");
+                wcscpy(items[n2].sub, L"音声");
                 n2++;
             }
         } else if (strncmp(usm_name, "m/live/high/2drich", 18) == 0){
-            /* 2D rich MV: 2drich<歌id>.usm -> l/song_<歌id>.acb */
+            /* 2D rich MV: 2drich<曲id>.usm -> l/song_<曲id>.acb */
             const char *d = usm_name + 18;
             char sid[16] = "";
             int k = 0;
@@ -652,14 +652,14 @@ static int browse_cg(sqlite3 *db, sqlite3 *rdb){
                     snprintf(items[n2].name, sizeof items[n2].name, "%s", cand);
                     snprintf(items[n2].hash, sizeof items[n2].hash, "%s", hash);
                     snprintf(items[n2].disp, sizeof items[n2].disp, "%s", cand);
-                    wcscpy(items[n2].sub, L"音频");
+                    wcscpy(items[n2].sub, L"音声");
                     n2++;
                 }
             }
         }
         else if (strncmp(usm_name, "m/live/high/movie", 17) == 0) {
-            /* m/live/high/movie5044.usm 这种没有下划线的情况 */
-            const char *d = usm_name + 17;   /* 跳过 "m/live/high/movie" */
+            /* m/live/high/movie5044.usm のようにアンダースコアが無い場合 */
+            const char *d = usm_name + 17;   /* "m/live/high/movie" をスキップ */
             char sid[16] = "";
             int k = 0;
             while (d[k] && isdigit((unsigned char)d[k]) && k < 14) {
@@ -674,13 +674,13 @@ static int browse_cg(sqlite3 *db, sqlite3 *rdb){
                     snprintf(items[n2].name, sizeof items[n2].name, "%s", cand);
                     snprintf(items[n2].hash, sizeof items[n2].hash, "%s", hash);
                     snprintf(items[n2].disp, sizeof items[n2].disp, "%s", cand);
-                    wcscpy(items[n2].sub, L"音频");
+                    wcscpy(items[n2].sub, L"音声");
                     n2++;
                 }
             }
         } 
         else if (movie[0]){
-            /* 兜底: 同 movie id 的所有 acb */
+            /* フォールバック: 同じ movie id の全 acb */
             char mlike[128];
             if(!is2dmovie)
                 snprintf(mlike, sizeof mlike, "%%movie_%s%%.acb", movie);
@@ -697,15 +697,15 @@ static int browse_cg(sqlite3 *db, sqlite3 *rdb){
                     snprintf(items[n2].hash, sizeof items[n2].hash, "%s",
                              (const char*)sqlite3_column_text(mstmt, 1));
                     snprintf(items[n2].disp, sizeof items[n2].disp, "%s", nm);
-                    wcscpy(items[n2].sub, L"音频");
+                    wcscpy(items[n2].sub, L"音声");
                     n2++;
                 }
                 sqlite3_finalize(mstmt);
             }
         }
-        if (n2 == 0){ printf("没有相关文件\n"); continue; }
+        if (n2 == 0){ printf("関連ファイルがありません\n"); continue; }
 
-        /* 目录: CGSS_DOWN\CG\movie_XXXX 或 CG\2drichXXXX */
+        /* ディレクトリ: CGSS_DOWN\CG\movie_XXXX または CG\2drichXXXX */
         char folder[512];
         if (movie[0]){
             snprintf(folder, sizeof folder, "CG\\movie_%s", movie);
@@ -722,24 +722,24 @@ static int browse_cg(sqlite3 *db, sqlite3 *rdb){
         swprintf(wfolder, 1024, L"%ls\\%ls", wroot, wfoldername);
         mkdirs(wfolder);
 
-        /* 自动下载全部(影片 + 配对音频), 不弹选择菜单 */
-        printf("自动下载 %d 个文件(影片+配对音频)...\n", n2);
+        /* すべて自動ダウンロード(ムービー + ペア音声)。選択メニューは出さない */
+        printf("自動で %d 件のファイルをダウンロード(ムービー+ペア音声)...\n", n2);
         for (int i = 0; i < n2; i++)
             download_item(&items[i], wfolder);
 
-        /* 下载完问一句: 要不要直接解包并合成音频 */
+        /* ダウンロード後に確認: mp4 へアンパックして音声を合成するか */
         char yn[16];
-        printf("是否解包成 mp4 并合成音频? (y/n): ");
+        printf("mp4 にアンパックして音声を合成しますか? (y/n): ");
         if (fgets(yn, sizeof yn, stdin) && (yn[0] == 'y' || yn[0] == 'Y'))
             unpack_cg_folder(wfolder);
     }
     return 0;
 }
 
-/* ================== 第一级选择: 通用"查对象" ================== */
+/* ================== 第1段階の選択: 共通の「対象を照会」 ================== */
 
-/* 把查询结果(id,name)列出多选, 选中的 id 写入 out, 返回个数
- * 只有一条结果时自动选中, 不用按空格 */
+/* 照会結果(id,name)を複数選択で列挙し、選んだ id を out に書き、個数を返す
+ * 結果が1件だけなら自動選択。Space は不要 */
 static int pick_rows(sqlite3_stmt *stmt, int *out, int max){
     static int row_ids[512];
     static dbdef tmp[513];
@@ -753,13 +753,13 @@ static int pick_rows(sqlite3_stmt *stmt, int *out, int max){
         n++;
     }
     sqlite3_finalize(stmt);
-    if (n == 0){ printf("没有匹配的记录\n"); return 0; }
+    if (n == 0){ printf("一致するレコードがありません\n"); return 0; }
     if (n == 1){ out[0] = row_ids[0]; return 1; }
 
     snprintf(tmp[n].name, sizeof tmp[n].name, "END");
     tmp[n].func = NULL;
     tmp[n].state = 0;
-    int rc = pager_picks("搜索结果(空格勾选, Enter确认)", tmp, NULL, NULL, 1);
+    int rc = pager_picks("検索結果(Spaceで選択, Enterで確定)", tmp, NULL, NULL, 1);
     if (rc <= 0) return 0;
     int c = 0;
     for (int i = 0; i < n && c < max; i++)
@@ -767,10 +767,10 @@ static int pick_rows(sqlite3_stmt *stmt, int *out, int max){
     return c;
 }
 
-/* 选歌曲: 输入歌名(模糊)或歌曲id */
+/* 楽曲を選択: 曲名(部分一致)または楽曲id を入力 */
 static int choose_songs(sqlite3 *db, int *ids, int max){
     char buf[128];
-    printf("输入歌曲名(模糊)或歌曲id: ");
+    printf("曲名(部分一致)または楽曲idを入力: ");
     if (fgets(buf, sizeof buf, stdin) == NULL) return 0;
     buf[strcspn(buf, "\r\n")] = 0;
     if (!buf[0]) return 0;
@@ -790,17 +790,17 @@ static int choose_songs(sqlite3 *db, int *ids, int max){
     if (sqlite3_prepare_v2(db,
             "SELECT id,name FROM music_data WHERE name LIKE ? ORDER BY id",
             -1, &stmt, NULL) != SQLITE_OK){
-        fprintf(stderr, "SQL错误: %s\n", sqlite3_errmsg(db));
+        fprintf(stderr, "SQLエラー: %s\n", sqlite3_errmsg(db));
         return 0;
     }
     sqlite3_bind_text(stmt, 1, like, -1, SQLITE_TRANSIENT);
     return pick_rows(stmt, ids, max);
 }
 
-/* 选卡片: 输入卡名/角色名(模糊)或 卡id/角色id */
+/* カードを選択: カード名/キャラ名(部分一致)または カードid/キャラid を入力 */
 static int choose_cards(sqlite3 *db, int *ids, int max){
     char buf[128];
-    printf("输入卡名/角色名(模糊)或id: ");
+    printf("カード名/キャラ名(部分一致)またはidを入力: ");
     if (fgets(buf, sizeof buf, stdin) == NULL) return 0;
     buf[strcspn(buf, "\r\n")] = 0;
     if (!buf[0]) return 0;
@@ -808,7 +808,7 @@ static int choose_cards(sqlite3 *db, int *ids, int max){
     sqlite3_stmt *stmt = NULL;
     if (isdigit((unsigned char)buf[0])){
         int nid = atoi(buf);
-        /* 先按卡id查, 查不到再按角色id查 */
+        /* 先にカードidで照会。無ければキャラidで照会 */
         if (sqlite3_prepare_v2(db, "SELECT id,name FROM card_data WHERE id=?",
                                -1, &stmt, NULL) == SQLITE_OK){
             sqlite3_bind_int(stmt, 1, nid);
@@ -823,7 +823,7 @@ static int choose_cards(sqlite3 *db, int *ids, int max){
         }
         return 0;
     }
-    /* 卡名 或 角色名 模糊匹配 */
+    /* カード名またはキャラ名の部分一致 */
     char like[256];
     snprintf(like, sizeof like, "%%%s%%", buf);
     if (sqlite3_prepare_v2(db,
@@ -831,7 +831,7 @@ static int choose_cards(sqlite3 *db, int *ids, int max){
             "OR c.chara_id IN (SELECT chara_id FROM chara_data WHERE name LIKE ?) "
             "ORDER BY c.id",
             -1, &stmt, NULL) != SQLITE_OK){
-        fprintf(stderr, "SQL错误: %s\n", sqlite3_errmsg(db));
+        fprintf(stderr, "SQLエラー: %s\n", sqlite3_errmsg(db));
         return 0;
     }
     sqlite3_bind_text(stmt, 1, like, -1, SQLITE_TRANSIENT);
@@ -839,7 +839,7 @@ static int choose_cards(sqlite3 *db, int *ids, int max){
     return pick_rows(stmt, ids, max);
 }
 
-/* ================== 歌曲 ================== */
+/* ================== 楽曲 ================== */
 
 static int browse_song(sqlite3 *db, sqlite3 *rdb){
     int ids[32];
@@ -864,10 +864,10 @@ static int browse_song(sqlite3 *db, sqlite3 *rdb){
         int n = 0;
         char res[256];
 
-        /* 音频 */
+        /* 音声 */
         snprintf(res, sizeof res, "l/song_%d.acb", id);
-        add_res(rdb, items, &n, res, L"acb文件");
-        /* 封面 */
+        add_res(rdb, items, &n, res, L"acbファイル");
+        /* ジャケット */
         sqlite3_stmt *jstmt = NULL;
         if (sqlite3_prepare_v2(db,
                 "SELECT jacket_id FROM live_data WHERE music_data_id=? AND jacket_id > 0 LIMIT 1",
@@ -876,11 +876,11 @@ static int browse_song(sqlite3 *db, sqlite3 *rdb){
             if (sqlite3_step(jstmt) == SQLITE_ROW){
                 snprintf(res, sizeof res, "jacket_%d.unity3d",
                          sqlite3_column_int(jstmt, 0));
-                add_res(rdb, items, &n, res, L"封面");
+                add_res(rdb, items, &n, res, L"ジャケット");
             }
             sqlite3_finalize(jstmt);
         }
-        /* 谱面 + 舞台 */
+        /* 譜面 + ステージ */
         sqlite3_stmt *lstmt = NULL;
         if (sqlite3_prepare_v2(db,
                 "SELECT id, live_bg FROM live_data WHERE music_data_id=? ORDER BY id",
@@ -890,17 +890,17 @@ static int browse_song(sqlite3 *db, sqlite3 *rdb){
                 int live_id = sqlite3_column_int(lstmt, 0);
                 int live_bg = sqlite3_column_int(lstmt, 1);
                 snprintf(res, sizeof res, "musicscores_m%d.bdb", live_id);
-                add_res(rdb, items, &n, res, L"谱面");
+                add_res(rdb, items, &n, res, L"譜面");
                 if (live_bg > 0){
                     snprintf(res, sizeof res, "3d_stage_%d.unity3d", live_bg);
-                    add_res(rdb, items, &n, res, L"舞台");
+                    add_res(rdb, items, &n, res, L"ステージ");
                     snprintf(res, sizeof res, "3d_stage_%d_hq.unity3d", live_bg);
-                    add_res(rdb, items, &n, res, L"舞台");
+                    add_res(rdb, items, &n, res, L"ステージ");
                 }
             }
             sqlite3_finalize(lstmt);
         }
-        /* 动作 */
+        /* モーション */
         char like[64];
         snprintf(like, sizeof like, "3d_cutt_an_chr_son%d%%", id);
         sqlite3_stmt *mstmt = NULL;
@@ -914,18 +914,18 @@ static int browse_song(sqlite3 *db, sqlite3 *rdb){
                 snprintf(items[n].hash, sizeof items[n].hash, "%s",
                          (const char*)sqlite3_column_text(mstmt, 1));
                 snprintf(items[n].disp, sizeof items[n].disp, "%s", items[n].name);
-                wcscpy(items[n].sub, L"动作");
+                wcscpy(items[n].sub, L"モーション");
                 n++;
             }
             sqlite3_finalize(mstmt);
         }
 
-        if (n == 0){ printf("没有可下载的资源\n"); continue; }
+        if (n == 0){ printf("ダウンロードできるリソースがありません\n"); continue; }
         static dbdef tmp[MAX_ITEMS + 1];
         static int picked[MAX_ITEMS];
         make_menu(tmp, items, n);
-        int rc = pager_picks("歌曲资源(空格勾选, Enter下载)", tmp, db, rdb, 1);
-        if (rc <= 0){ if (rc == -1) printf("已取消\n"); continue; }
+        int rc = pager_picks("楽曲リソース(Spaceで選択, Enterでダウンロード)", tmp, db, rdb, 1);
+        if (rc <= 0){ if (rc == -1) printf("キャンセルしました\n"); continue; }
 
         int c = collect(tmp, n, picked);
         char folder[512];
@@ -937,12 +937,12 @@ static int browse_song(sqlite3 *db, sqlite3 *rdb){
         mkdirs(wfolder);
         for (int i = 0; i < c; i++)
             download_item(&items[picked[i]], wfolder);
-        printf("共下载 %d 个 -> %ls\n", c, wfolder);
+        printf("合計 %d 件をダウンロード -> %ls\n", c, wfolder);
     }
     return 0;
 }
 
-/* ================== 卡片 ================== */
+/* ================== カード ================== */
 
 static int browse_card(sqlite3 *db, sqlite3 *rdb){
     int ids[64];
@@ -955,7 +955,7 @@ static int browse_card(sqlite3 *db, sqlite3 *rdb){
         if (sqlite3_prepare_v2(db,
                 "SELECT id,name,chara_id,open_dress_id FROM card_data WHERE id=?",
                 -1, &stmt, NULL) != SQLITE_OK){
-            fprintf(stderr, "SQL错误: %s\n", sqlite3_errmsg(db));
+            fprintf(stderr, "SQLエラー: %s\n", sqlite3_errmsg(db));
             continue;
         }
         sqlite3_bind_int(stmt, 1, card_id);
@@ -977,7 +977,7 @@ static int browse_card(sqlite3 *db, sqlite3 *rdb){
         const char *sizes[6] = {"circle","sm","s","m","l","xl"};
         for (int i = 0; i < 6; i++){
             snprintf(res, sizeof res, "card_%d_%s.unity3d", card_id, sizes[i]);
-            add_res(rdb, items, &n, res, L"卡面");
+            add_res(rdb, items, &n, res, L"カードイラスト");
         }
         snprintf(res, sizeof res, "card_bg_%d.unity3d", card_id);
         add_res(rdb, items, &n, res, L"背景");
@@ -988,40 +988,40 @@ static int browse_card(sqlite3 *db, sqlite3 *rdb){
         snprintf(res, sizeof res, "card_cartoon_%d.unity3d", card_id);
         add_res(rdb, items, &n, res, L"Live2D");
         snprintf(res, sizeof res, "idol_3d_%d_l.unity3d", card_id);
-        add_res(rdb, items, &n, res, L"3d照片");
+        add_res(rdb, items, &n, res, L"3Dフォト");
         snprintf(res, sizeof res, "idol_3d_%d_s.unity3d", card_id);
-        add_res(rdb, items, &n, res, L"3d照片");
+        add_res(rdb, items, &n, res, L"3Dフォト");
         snprintf(res, sizeof res, "v/card_%d.acb", card_id);
-        add_res(rdb, items, &n, res, L"语音");
+        add_res(rdb, items, &n, res, L"ボイス");
         snprintf(res, sizeof res, "card_spine_%d.unity3d", card_id);
         add_res(rdb, items, &n, res, L"Spine");
         add_res(rdb, items, &n, "spine_sprachen_petit_chara_common.unity3d", L"Spine");
         if (dress_id > 0 && n < MAX_ITEMS){
             snprintf(res, sizeof res, "3d_chara_body_%04d.unity3d", dress_id);
-            add_res(rdb, items, &n, res, L"3D模型");
+            add_res(rdb, items, &n, res, L"3Dモデル");
             snprintf(res, sizeof res, "3d_chara_head_%04d_%04d_hq.unity3d",
                      chara_id, dress_id);
             if (get_hash(rdb, res, items[n].hash, 64) != 0)
                 snprintf(res, sizeof res, "3d_chara_head_%04d_%04d.unity3d",
                          chara_id, dress_id);
-            add_res(rdb, items, &n, res, L"3D模型");
+            add_res(rdb, items, &n, res, L"3Dモデル");
             snprintf(res, sizeof res, "3d_md_body%04d_hq.unity3d", dress_id);
             if (get_hash(rdb, res, items[n].hash, 64) != 0)
                 snprintf(res, sizeof res, "3d_md_body%04d.unity3d", dress_id);
-            add_res(rdb, items, &n, res, L"3D模型");
+            add_res(rdb, items, &n, res, L"3Dモデル");
             const char *tx[3] = {"hq","multi","spec"};
             for (int i = 0; i < 3; i++){
                 snprintf(res, sizeof res, "3d_tx_body%04d_%s.unity3d", dress_id, tx[i]);
-                add_res(rdb, items, &n, res, L"3D模型");
+                add_res(rdb, items, &n, res, L"3Dモデル");
             }
         }
 
-        if (n == 0){ printf("没有可下载的资源\n"); continue; }
+        if (n == 0){ printf("ダウンロードできるリソースがありません\n"); continue; }
         static dbdef tmp[MAX_ITEMS + 1];
         static int picked[MAX_ITEMS];
         make_menu(tmp, items, n);
-        int rc = pager_picks("卡片资源(空格勾选, Enter下载)", tmp, db, rdb, 1);
-        if (rc <= 0){ if (rc == -1) printf("已取消\n"); continue; }
+        int rc = pager_picks("カードリソース(Spaceで選択, Enterでダウンロード)", tmp, db, rdb, 1);
+        if (rc <= 0){ if (rc == -1) printf("キャンセルしました\n"); continue; }
 
         int c = collect(tmp, n, picked);
         char folder[512];
@@ -1033,16 +1033,16 @@ static int browse_card(sqlite3 *db, sqlite3 *rdb){
         mkdirs(wfolder);
         for (int i = 0; i < c; i++)
             download_item(&items[picked[i]], wfolder);
-        printf("共下载 %d 个 -> %ls\n", c, wfolder);
+        printf("合計 %d 件をダウンロード -> %ls\n", c, wfolder);
     }
     return 0;
 }
 
-/* ================== 语音 ================== */
+/* ================== ボイス ================== */
 
 static int browse_voice(sqlite3 *db, sqlite3 *rdb){
     int ids[64];
-    int nids = choose_cards(db, ids, 64);   /* 复用卡片的查找逻辑 */
+    int nids = choose_cards(db, ids, 64);   /* カードの検索ロジックを再利用 */
     if (nids <= 0) return 0;
 
     for (int s = 0; s < nids; s++){
@@ -1064,7 +1064,7 @@ static int browse_voice(sqlite3 *db, sqlite3 *rdb){
             int n = 0;
             char res[256];
             snprintf(res, sizeof res, "v/card_%d.acb", card_id);
-            add_res(rdb, items, &n, res, L"语音");
+            add_res(rdb, items, &n, res, L"ボイス");
             if (n == 0) continue;
 
             char folder[512];
@@ -1075,53 +1075,53 @@ static int browse_voice(sqlite3 *db, sqlite3 *rdb){
             swprintf(wfolder, 1024, L"%ls\\%ls", wroot, wfoldername);
             mkdirs(wfolder);
             download_item(&items[0], wfolder);
-            printf("语音已下载 -> %ls\n", wfolder);
+            printf("ボイスをダウンロードしました -> %ls\n", wfolder);
         }
     }
     return 0;
 }
 
-/* ================== 模块入口 ================== */
+/* ================== モジュール入口 ================== */
 
 int browse_main(void){
     sqlite3 *db = NULL, *rdb = NULL;
     const char *mp = find_manifest();
     if (GetFileAttributesA(DB_PATH) == INVALID_FILE_ATTRIBUTES){
-        fprintf(stderr, "缺少 master.mdb，请把它放到程序同目录\n");
+        fprintf(stderr, "master.mdb がありません。プログラムと同じディレクトリに置いてください\n");
         return -1;
     }
     if (!mp){
-        fprintf(stderr, "缺少 manifest_*.db（资源清单库），请先运行 check_update.exe 获取\n");
+        fprintf(stderr, "manifest_*.db（リソースマニフェストDB）がありません。先に check_update.exe を実行して取得してください\n");
         return -1;
     }
     if (sqlite3_open(DB_PATH, &db) != SQLITE_OK){
-        fprintf(stderr, "打开 master.mdb 失败（%s）\n", sqlite3_errmsg(db));
+        fprintf(stderr, "master.mdb を開けませんでした（%s）\n", sqlite3_errmsg(db));
         return -1;
     }
     if (sqlite3_open(mp, &rdb) != SQLITE_OK){
-        fprintf(stderr, "打开 %s 失败（%s）\n", mp, sqlite3_errmsg(rdb));
+        fprintf(stderr, "%s を開けませんでした（%s）\n", mp, sqlite3_errmsg(rdb));
         sqlite3_close(db);
         return -1;
     }
 
     dbdef menu[] = {
-        {"1.自由搜索(按资源名)", browse_all, 0},
+        {"1.自由検索(リソース名)", browse_all, 0},
         {"2.BGM", browse_bgm, 0},
-        {"3.歌曲(名/id)", browse_song, 0},
-        {"4.卡片(名/角色名/id)", browse_card, 0},
-        {"5.角色语音(名/id)", browse_voice, 0},
-        {"6.谱面(歌名/id)", browse_chart, 0},
-        {"7.舞台(歌名/id)", browse_stage, 0},
-        {"8.动作(歌名/id)", browse_action, 0},
-        {"9.3D模型(卡名/角色名/id)", browse_model, 0},
-        {"10.Spine小人(卡名/角色名/id)", browse_spine, 0},
-        {"11.贴纸", browse_sticker, 0},
-        {"12.CG影片(关键词)", browse_cg, 0},
-        {"13.返回", NULL, 0},
+        {"3.楽曲(名/id)", browse_song, 0},
+        {"4.カード(名/キャラ名/id)", browse_card, 0},
+        {"5.キャラボイス(名/id)", browse_voice, 0},
+        {"6.譜面(曲名/id)", browse_chart, 0},
+        {"7.ステージ(曲名/id)", browse_stage, 0},
+        {"8.モーション(曲名/id)", browse_action, 0},
+        {"9.3Dモデル(カード名/キャラ名/id)", browse_model, 0},
+        {"10.Spine SDキャラ(カード名/キャラ名/id)", browse_spine, 0},
+        {"11.ステッカー", browse_sticker, 0},
+        {"12.CGムービー(キーワード)", browse_cg, 0},
+        {"13.戻る", NULL, 0},
         {"END", NULL, 0}
     };
     while (1){
-        int rc = pager_picks("资源查找与下载", menu, db, rdb, 0);
+        int rc = pager_picks("リソース検索とダウンロード", menu, db, rdb, 0);
         if (rc == -1)
             continue;
         if (rc == 12)

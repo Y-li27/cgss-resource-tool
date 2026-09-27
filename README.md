@@ -1,303 +1,303 @@
-# CGSS 资源工具（CGSS Resource Tool）
+# CGSS リソースツール（CGSS Resource Tool）
 
-CGSS（偶像大师 灰姑娘女孩 星光舞台）资源查询、下载、解包一体化工具
+CGSS（アイドルマスター シンデレラガールズ スターライトステージ）のリソース検索・ダウンロード・アンパック一体型ツール
 
-#### 应个人原因项目目前处理停滞状态（上高中没时间了说，只能尽力慢慢加功能，最近还开始做CGSS的VRM模了，bilibili搜“偶像大唱官方”可以支持下我喵）
+#### 個人的な事情で、プロジェクトは現在停滞しています（高校に上がって時間がなくなった、という話です。できる範囲で少しずつ機能を足していきます。最近は CGSS の VRM モデルも作り始めました。bilibili で「偶像大唱官方」を検索して、応援してもらえるとにゃ）
 
-C 编写（MinGW + CMake），静态链接，Windows 10/11 上解压即用，不需要安装任何运行库
+C で記述（MinGW + CMake）、静的リンク。Windows 10/11 では展開するだけですぐ使え、ランタイムのインストールは不要です
 > [!IMPORTANT]
-> 需解包相关功能请确保将AS放置在同目录和安装NET7
+> アンパック関連の機能を使う場合は、AS を同じディレクトリに置き、NET 7 をインストールしてください
 > https://builds.dotnet.microsoft.com/dotnet/WindowsDesktop/7.0.20/windowsdesktop-runtime-7.0.20-win-x64.exe
-> 游戏相关资源及内容的著作权归 BANDAI NAMCO Entertainment Inc. 所有。
-> 本工具仅用于学习交流，请勿用于商业用途；下载、解包的内容请在 24 小时内删除。
+> ゲーム関連のリソースおよびコンテンツの著作権は BANDAI NAMCO Entertainment Inc. に帰属します。
+> 本ツールは学習・交流のみに使用してください。商用利用はしないでください。ダウンロード・アンパックした内容は 24 時間以内に削除してください。
 
-##### 其实傻不傻瓜式我也不知道，我尽量做的简单了
+##### お手軽かどうかは自分でも分かりませんが、できるだけ簡単になるように作りました
 
 ---
 
-## 功能一览
+## 機能一覧
 
-主菜单：
+メインメニュー：
 
 ```
-1. 资源查找与下载
-2. 解包
-3. 打开 Spine 预览(beta)
-4. USM/CG解包
+1. リソース検索とダウンロード
+2. アンパック
+3. Spine プレビューを開く(beta)
+4. USM/CGアンパック
 ```
 
-### 1. 资源查找与下载
-- 预设CG/2DMV/3D模型/2D小人(Spine模型)/歌曲/谱面/卡面图片/动态卡面(Spine动画)
-  角色语言&文本/3D舞台/3DMV角色动作/游戏插画贴纸/BGM 的下载
-- 支持自定义搜索
-- 支持部分在下载完成后选择是否解包，减少繁琐操作
-![USM文件下载显示](GIF/查找MV.gif)
+### 1. リソース検索とダウンロード
+- プリセットの CG / 2DMV / 3Dモデル / 2D SDキャラ（Spineモデル） / 楽曲 / 譜面 / カードイラスト画像 / 動的カードイラスト（Spineアニメーション）
+  キャラのボイス＆テキスト / 3Dステージ / 3DMVキャラモーション / ゲームイラストステッカー / BGM のダウンロード
+- カスタム検索に対応
+- 一部はダウンロード完了後にアンパックするかを選べ、手間を減らせる
+![USMファイルのダウンロード表示](GIF/查找MV.gif)
 
-### 2. 解包
+### 2. アンパック
 
-- 模型解包为 FBX（调用 AssetStudio.CLI；CLI 导出身体贴图会无法自动引用）
-- 卡面 / 背景 / Live2D / 3D 照片 / Spine 解包为 PNG
-- Spine `.skel` 自动转 JSON，同时生成两份：
-  - `*.json`：3.6 格式（浏览器预览用）
-  - `*_v38.json`：3.8.75 格式（Spine 编辑器用）
-- RGB 主贴图 + A8 透明通道自动合成 `*_merged.png`，并生成配套 atlas
-- ACB 音乐提取与 HCA 解码（acb2wavs）
+- モデルを FBX にアンパック（AssetStudio.CLI を呼び出し。CLI で書き出したボディのテクスチャは自動参照できない）
+- カードイラスト / 背景 / Live2D / 3Dフォト / Spine を PNG にアンパック
+- Spine `.skel` を自動で JSON に変換し、次の 2 つを同時に生成：
+  - `*.json`：3.6 形式（ブラウザプレビュー用）
+  - `*_v38.json`：3.8.75 形式（Spine エディタ用）
+- RGB メインテクスチャ + A8 アルファチャンネルを自動合成して `*_merged.png` を作り、対応する atlas も生成
+- ACB 楽曲の抽出と HCA デコード（acb2wavs）
 
-### 3. Spine 预览（beta）
+### 3. Spine プレビュー（beta）
 
-扫描 `CGSS_DOWN` 里带 Spine（Live2D）资源的角色，自动补转缺失的 JSON，
-用默认浏览器打开 `spine_preview/preview.html` 即可播放动画。
+`CGSS_DOWN` 内で Spine（Live2D）リソースを持つキャラを走査し、欠けている JSON を自動で追加変換する。
+デフォルトのブラウザで `spine_preview/preview.html` を開けばアニメーションを再生できる。
 
-- 支持直接选择 `.skel` 文件自动转 JSON（需同时选 atlas 和贴图）
-- 图层顺序自动排好：bg → eff2 → chara → eff1 → fg
-- 混合模式按 Spine 规则模拟（normal / additive / multiply / screen）
-- 默认 WebGL 渲染，无三角形接缝；不可用时自动回退 canvas 2D + 2 倍超采样
-- 支持左右镜像（flip），新卡 s / 老卡 n 骨架加载前自动提示
-- 页面提供「导出 MP4」按钮：WebCodecs 硬编码 H.264，30fps，
-  以背景包围盒为输出尺寸（需新版 Chrome / Edge）
+- `.skel` ファイルを直接選択して自動で JSON に変換（atlas とテクスチャも同時に選ぶ必要がある）
+- レイヤー順は自動で並べる：bg → eff2 → chara → eff1 → fg
+- ブレンドモードは Spine の規則に従って再現（normal / additive / multiply / screen）
+- デフォルトは WebGL レンダリングで、三角形の継ぎ目がない。使えない場合は canvas 2D + 2 倍スーパーサンプリングへ自動フォールバック
+- 左右ミラー（flip）に対応。新カードは s、旧カードは n のスケルトンを、読み込む前に自動で知らせる
+- ページに「MP4を書き出し」ボタンがある：WebCodecs のハードウェアエンコード H.264、30fps。
+  背景のバウンディングボックスを出力サイズにする（新しい版の Chrome / Edge が必要）
 
-  ### 4.USM/CG解包
+  ### 4.USM/CGアンパック
 
-- 支持自定义USM文件解包（但默认密钥为草菇的密钥，需要自行usm.c更改密钥）
+- カスタム USM ファイルのアンパックに対応（ただしデフォルトの鍵は草菇の鍵。必要な場合は自分で usm.c の鍵を変更する）
 - 
 
 ---
 
-## 快速开始
+## クイックスタート
 
-1. 下载发布包：
-   - `CGSS_ResourceTool.zip`：完整版，已含数据库，解压即用
-   - `CGSS_ResourceTool_nodb.zip`：精简版，不含数据库（见下文）
-2. 解压后把 `CGSS_Script.exe`、`master.mdb`、`manifest_*.db` 放在同一目录
-3. 双击 `CGSS_Script.exe` 即可使用
-> 请确保你的网络环境可以正常访问github，程序运行会向github获取最新版本号以判断是否更新
-> 游戏已停止更新新内容，数据库即为最终版本（资源版本 10133800），
-> 资源查询与下载不受影响。
+1. リリース包をダウンロード：
+   - `CGSS_ResourceTool.zip`：完全版。データベース同梱で、展開してそのまま使える
+   - `CGSS_ResourceTool_nodb.zip`：軽量版。データベースを含まない（下記参照）
+2. 展開後、`CGSS_Script.exe`、`master.mdb`、`manifest_*.db` を同じディレクトリに置く
+3. `CGSS_Script.exe` をダブルクリックすればそのまま使える
+> github に正常にアクセスできるネットワーク環境であることを確認してください。プログラム実行時に github から最新バージョン番号を取得し、アップデートの有無を判定します
+> ゲームは新規コンテンツの更新を停止しており、データベースは最終バージョンです（リソースバージョン 10133800）。
+> リソース検索とダウンロードには影響しません。
 
-### check_update.exe（暂时弃用）
+### check_update.exe（一時的に廃止）
 
-负责检查 / 补齐数据库的小工具，精简版（_nodb）用户必看：
+データベースの確認 / 補完を担当する小さなツール。軽量版（_nodb）のユーザーは必読：
 
-- 自动扫描同目录的 `manifest_*.db` 并选择最新版本
-- 联网查询最新资源版本（starlight.kirara.ca 数据源）
-- 不是最新版时自动下载、MD5 校验、LZ4 解压并写入新库
-- 同目录没有 `master.mdb` 时，自动从清单库读出下载地址并一并补齐
-  （完整包已含两个库，运行时会显示「已是最新 / 已存在」）
+- 同じディレクトリの `manifest_*.db` を自動走査し、最新バージョンを選択
+- ネットで最新リソースバージョンを照会（starlight.kirara.ca のデータソース）
+- 最新でない場合は自動ダウンロード、MD5 検証、LZ4 展開して新しい DB に書き込む
+- 同じディレクトリに `master.mdb` がない場合、マニフェスト DB からダウンロード先を読み出し、まとめて補完する
+  （完全版には両方の DB が含まれており、実行時に「最新です / 既存」と表示される）
 > [!IMPORTANT]
-> v1.51版本后check_updata.exe在部分设备可能无法正常运行
-> 在修复之前nodb版将停止上传
+> v1.51 以降、check_updata.exe は一部の端末で正常に動作しないことがある
+> 修正されるまで nodb 版のアップロードは停止する
 
 
 ---
 
-## Spine 编辑器（3.8.75）使用
+## Spine エディタ（3.8.75）の使い方
 
-- Spine 3.8.75 **不能直接打开** 3.6 版本的 `.skel` / `.json`（数据版本必须一致）
-- 本工具在解包 / 预览时会额外生成 `*_v38.json`（数据版本 3.8.75）
-  这批卡面动画没有 IK / Transform / Path 约束，3.6 → 3.8 仅差版本号，
-  已在 Spine 3.8 运行时实测可正常加载播放
-- 在 3.8.75 编辑器里打开：
+- Spine 3.8.75 は 3.6 の `.skel` / `.json` を直接開けない（データバージョンが一致している必要がある）
+- 本ツールはアンパック / プレビュー時に、追加で `*_v38.json`（データバージョン 3.8.75）を生成する
+  これらのカードイラストアニメには IK / Transform / Path コンストレイントがなく、3.6 → 3.8 の差はバージョン番号だけ。
+  Spine 3.8 ランタイムで実機確認済みで、正常に読み込んで再生できる
+- 3.8.75 エディタで開くもの：
   `*_v38.json` + `*_v38.atlas` + `*_merged.png`
-  （merged 是 RGB 主贴图与 A8 透明通道合成后的单张贴图，编辑器不支持双贴图）
+  （merged は RGB メインテクスチャと A8 アルファチャンネルを合成した 1 枚のテクスチャ。エディタは 2 枚テクスチャに非対応）
 
 ---
 
-## 目录结构
+## ディレクトリ構成
 
 ```
 CGSS/
-├── main.c                     主菜单入口（1.资源查找与下载 2.解包 3.Spine预览 4.USM/CG解包）
-├── browse.c / .h              资源查找+下载整合模块（自由搜索 / BGM / 歌曲 / 卡片 /
-├── miniz                       解包zip的第三方库
-│                               谱面 / 舞台 / 动作 / 3D模型 / Spine / 贴纸 / CG影片）
-├── cg.c / .h                  USM/CG 解包（自定义文件/目录解包、已下载CG解包、
-│                               视频+配对音频自动合成 mp4）
-├── check_updata.c              已暂时弃用
-├── sticker.c / .h              扩展browse 下载贴图后调用导出spine工程文件和png图片
-├── paper.c / .h               翻页菜单组件（pager：单选/多选、方向键翻页、全屏列表）
-├── auto_updata.c / .h          检测版本号并和github上的版本号进行对比，如有新版本可选择自动更新
-├── usm.c                      独立 USM 解包命令行工具（usm.exe）
-├── lookup_*.c / lookup_table.h  旧查询模块（已被 browse 整合，保留作参考）
-├── download.c / .h            旧下载模块（已被 browse 整合，保留作参考）
-├── net.c / .h                 网络下载（CDN 按扩展名分类：unity3d/acb/usm/bdb）+ LZ4 解压
-├── acb.c / .h                 ACB 音乐提取和 HCA 解码（acb2wavs）
-├── unpack.c / .h              解包菜单 + 公共解包工具
-├── unpack_fbx.c               模型解包为 FBX
-├── unpack_res.c               角色资源解包
-├── spine_convert.c / .h       Spine .skel -> JSON 转换（CGSS 大端格式）
-├── texture_merge.cpp / .h     RGB + A8 贴图合成
-├── preview.c / .h             Spine 浏览器预览
-├── util.c / .h                公共工具（目录创建 / 编码转换 / 多选解析等）
-├── GBKswapUTF8.c / .h         编码转换
-├── data.h                     数据结构定义（卡面/角色等）
-├── PNG                        记录.md的图片文件夹
-├── sqlite3.c / sqlite3.h / sqlite3ext.h   SQLite 库
-├── spine_preview/             Spine 预览网页资源
-├── cgss_apply_textures.py      Blender 贴图脚本
-├── cgss_anim_to_shapekeys.py   Blender 形态键脚本
-├── CMakeLists.txt              构建配置
-├── ffmpeg.exe                  视频转换（第三方，不入库，发布包自带）
-├── master.mdb / manifest_10133800.db   游戏数据库（不在仓库内，自行准备）
-├── 记录.md                     备忘录差不多
-└── README.md                   本文档
+├── main.c                     メインメニュー入口（1.リソース検索とダウンロード 2.アンパック 3.Spineプレビュー 4.USM/CGアンパック）
+├── browse.c / .h              リソース検索+ダウンロード統合モジュール（自由検索 / BGM / 楽曲 / カード /
+├── miniz                       zip アンパック用のサードパーティライブラリ
+│                               譜面 / ステージ / モーション / 3Dモデル / Spine / ステッカー / CGムービー）
+├── cg.c / .h                  USM/CG アンパック（カスタムファイル/ディレクトリのアンパック、ダウンロード済み CG のアンパック、
+│                               動画+対応する音声を自動合成して mp4）
+├── check_updata.c              一時的に廃止
+├── sticker.c / .h              browse を拡張。テクスチャのダウンロード後に spine プロジェクトファイルと png 画像の書き出しを呼び出す
+├── paper.c / .h               ページ移動メニュー部品（pager：単一選択/複数選択、方向キーでページ移動、全画面リスト）
+├── auto_updata.c / .h          バージョン番号を検出し、github 上のバージョン番号と比較。新バージョンがあれば自動アップデートを選べる
+├── usm.c                      独立した USM アンパックのコマンドラインツール（usm.exe）
+├── lookup_*.c / lookup_table.h  旧検索モジュール（browse に統合済み。参考として残す）
+├── download.c / .h            旧ダウンロードモジュール（browse に統合済み。参考として残す）
+├── net.c / .h                 ネットワークダウンロード（CDN を拡張子で分類：unity3d/acb/usm/bdb）+ LZ4 展開
+├── acb.c / .h                 ACB 楽曲の抽出と HCA デコード（acb2wavs）
+├── unpack.c / .h              アンパックメニュー + 共通アンパック処理
+├── unpack_fbx.c               モデルを FBX にアンパック
+├── unpack_res.c               キャラリソースのアンパック
+├── spine_convert.c / .h       Spine .skel -> JSON 変換（CGSS ビッグエンディアン形式）
+├── texture_merge.cpp / .h     RGB + A8 テクスチャ合成
+├── preview.c / .h             Spine ブラウザプレビュー
+├── util.c / .h                共通ユーティリティ（ディレクトリ作成 / エンコーディング変換 / 複数選択の解析など）
+├── GBKswapUTF8.c / .h         エンコーディング変換
+├── data.h                     データ構造の定義（カードイラスト/キャラなど）
+├── PNG                        記録.md の画像フォルダ
+├── sqlite3.c / sqlite3.h / sqlite3ext.h   SQLite ライブラリ
+├── spine_preview/             Spine プレビュー用のウェブページリソース
+├── cgss_apply_textures.py      Blender テクスチャスクリプト
+├── cgss_anim_to_shapekeys.py   Blender シェイプキースクリプト
+├── CMakeLists.txt              ビルド設定
+├── ffmpeg.exe                  動画変換（サードパーティ。リポジトリには入れず、リリース包に同梱）
+├── master.mdb / manifest_10133800.db   ゲームデータベース（リポジトリ外。自分で用意）
+├── 記録.md                     メモに近いもの
+└── README.md                   本文書
 ```
 
 ---
 
-## 编译
+## コンパイル
 
-需要 MinGW-w64 和 CMake：
+MinGW-w64 と CMake が必要です：
 
 ```bash
 cmake -S . -B build_static -DCMAKE_BUILD_TYPE=Release -DCGSS_STATIC=ON
 cmake --build build_static --target all -j 8
 ```
 
-产物：
+成果物：
 
-- `build_static/CGSS_Script.exe`（主程序）
-- `build_static/usm.exe`（usm解包程序）
+- `build_static/CGSS_Script.exe`（メインプログラム）
+- `build_static/usm.exe`（usm アンパックプログラム）
 
-默认静态链接：libgcc / libstdc++ 已内嵌进 exe，产物只依赖 Windows 系统 DLL，
-不需要安装 MinGW，也不需要附带任何 MinGW DLL。
+デフォルトは静的リンク：libgcc / libstdc++ は exe に組み込み済み。成果物は Windows のシステム DLL だけに依存し、
+MinGW のインストールも、MinGW DLL の同梱も不要です。
 
-如需动态链接（体积略小，但要带 libgcc / libstdc++ 两个 DLL）：
+動的リンクが必要な場合（容量は少し小さいが、libgcc / libstdc++ の 2 つの DLL を一緒に置く必要がある）：
 
 ```bash
 cmake -S . -B build -DCGSS_STATIC=OFF
 ```
 
-## 依赖说明
+## 依存関係
 
-- 数据库：从游戏客户端提取的 `master.mdb`（主库）和 `manifest_10133800.db`（资源清单）。
-  完整发布包已包含
-- NET7环境（可选）
-- 一个可以良好访问Github的网络环境
-- 第三方库:miniz 
-- 除USM的解包：RazTools的魔改AssetStudio（.NET 7 程序，需要安装 .NET 7 Desktop Runtime）
-- 语音解码：deretore-toolkit 的 `acb2wavs.exe` 及同目录 DLL
-- Blender 脚本（可选）：
-  - `cgss_apply_textures.py`：FBX 在 Blender 里自动贴图 + 糙度 = 1
-  - `cgss_anim_to_shapekeys.py`：把骨骼表情动作烘焙成形态键
-- `ffmpeg.exe`进行mv的音视频合并
-
----
-
-## 常见问题
-
-- 解包报「启动 AssetStudio.CLI 失败」：安装 .NET 7 Desktop Runtime
-- 更新失败：确保有权创造新文件夹，能正常访问Github，如果都没用就手动去Release下载并替换吧，有能力顺便提交个issue
-- 语音解码无输出：确认 `acb2wavs.exe` 和同目录 DLL 未被杀毒软件删除
-- 找不到数据库：`master.mdb`、`manifest_*.db` 与 exe 同目录即可；
-  `_nodb` 版请自行准备数据库，或运行一次 `check_update.exe` 获取清单库
-- CLI 导出的 FBX 身体没有贴图：带贴图的 body_FBX 需用 GUI 导出
-  （解包菜单内有详细步骤）
-- 选择解包后没有解出所需文件：确保 exe 同目录包含了AssetStudio
+- データベース：ゲームクライアントから抽出した `master.mdb`（メイン DB）と `manifest_10133800.db`（リソースマニフェスト）。
+  完全版のリリース包に含まれる
+- NET 7 環境（任意）
+- Github に問題なくアクセスできるネットワーク環境
+- サードパーティライブラリ: miniz
+- USM 以外のアンパック：RazTools の改造版 AssetStudio（.NET 7 プログラム。.NET 7 Desktop Runtime のインストールが必要）
+- ボイスのデコード：deretore-toolkit の `acb2wavs.exe` と、同じディレクトリの DLL
+- Blender スクリプト（任意）：
+  - `cgss_apply_textures.py`：Blender 上の FBX に自動でテクスチャを貼り、粗さ = 1
+  - `cgss_anim_to_shapekeys.py`：ボーンの表情モーションをシェイプキーにベイク
+- `ffmpeg.exe` で MV の音声と映像を合成
 
 ---
 
-## 版本历史
+## よくある質問
 
-### 版本号规则
+- アンパックで「AssetStudio.CLI の起動に失敗」と出る：.NET 7 Desktop Runtime をインストール
+- アップデート失敗：新しいフォルダを作る権限があること、Github に正常にアクセスできることを確認する。それでもダメなら、手動で Release をダウンロードして置き換えてください。余裕があれば issue も出してもらえると助かります
+- ボイスのデコードで出力がない：`acb2wavs.exe` と同じディレクトリの DLL がウイルス対策ソフトに削除されていないか確認
+- データベースが見つからない：`master.mdb`、`manifest_*.db` を exe と同じディレクトリに置けばよい。
+  `_nodb` 版は自分でデータベースを用意するか、`check_update.exe` を一度実行してマニフェスト DB を取得する
+- CLI で書き出した FBX のボディにテクスチャがない：テクスチャ付きの body_FBX は GUI で書き出す必要がある
+  （アンパックメニュー内に詳しい手順あり）
+- アンパックを選んでも必要なファイルが出てこない：exe と同じディレクトリに AssetStudio があることを確認する
 
-- 小更新（修 bug / 小功能）：版本号 +0.01，如 1.3 → 1.31 → 1.32
-- 大更新（新功能模块 / 较大改动）：版本号 +0.1，如 1.3 → 1.4 → 1.5
-- 超大更新（如新增 GUI 等大改版）：主版本 +1，如 1.x → 2.0
+---
+
+## バージョン履歴
+
+### バージョン番号の規則
+
+- 小さなアップデート（バグ修正 / 小機能）：バージョン +0.01。例 1.3 → 1.31 → 1.32
+- 大きなアップデート（新機能モジュール / 大きめの変更）：バージョン +0.1。例 1.3 → 1.4 → 1.5
+- 超大型アップデート（GUI 追加などの大改版）：メジャーバージョン +1。例 1.x → 2.0
 
 ### v1.61(2026-8-28)
-- 新增自动更新，主程序启动时访问github获取最新版本号，如有新版本，则可以选择自动更新
-- 暂时弃用check_update.exe
-- 修复了下载贴图后没有解析文件
+- 自動アップデートを追加。メインプログラム起動時に github へアクセスして最新バージョン番号を取得し、新バージョンがあれば自動アップデートを選べる
+- check_update.exe を一時的に廃止
+- テクスチャのダウンロード後にファイルが解析されない不具合を修正
 
 ### v1.51(2026-8-15)
-- CG选择下载界面的MmovieXXXX.usm格式显示对应歌名，下载时自动选择对应音频
+- CG のダウンロード選択画面で、MmovieXXXX.usm 形式が対応する曲名を表示するようにし、ダウンロード時に対応する音声を自動選択
   
 ### v1.5(2026-08-15)
-- CLI交互重写，更加美观，更人性化
-- 新增预设USM文件和BGM查找
-  查找到USM文件是2DMV时附带歌曲名
-- 支持自定义查找
-- 支持在查找时选择文件并进行下载，USM文件在下载时会一起下载对应音频文件并在解包时进行合并
-- 更多请自行探索
+- CLI のやり取りを書き直し、見た目を整え、より使いやすくした
+- プリセットの USM ファイルと BGM 検索を追加
+  USM ファイルが 2DMV の場合は曲名を付ける
+- カスタム検索に対応
+- 検索時にファイルを選んでダウンロードできる。USM ファイルはダウンロード時に対応する音声ファイルも一緒に取得し、アンパック時に合成する
+- その他は自分で試してみてください
 
 ### v1.42（2026-08-12）
 
-- `check_update.exe` 新增 **master.mdb 自动补齐**：同目录没有主库时，
-  自动从清单库读出下载地址并下载 + MD5 校验 + LZ4 解压
-- 精简版（`_nodb`）现在自给自足：解压后运行一次 `check_update.exe`
-  即自动获得清单库和主库，无需再另外准备数据库
+- `check_update.exe` に **master.mdb の自動補完** を追加：同じディレクトリにメイン DB がないとき、
+  マニフェスト DB からダウンロード先を読み出してダウンロード + MD5 検証 + LZ4 展開
+- 軽量版（`_nodb`）が自己完結するようになった：展開後に `check_update.exe` を一度実行すれば
+  マニフェスト DB とメイン DB を自動で取得でき、別にデータベースを用意する必要はない
 
 ### v1.41（2026-08-12）
 
-- 新增 `check_update.exe`：检查资源版本 / 首次使用自动下载资源清单库
-  - 自动扫描同目录 `manifest_*.db` 并选最新版本
-  - 联网对比最新资源版本，非最新时自动下载 + MD5 校验 + LZ4 解压
-  - 游戏停更后版本号数据库若未变运行会显示「已是最新」，也可用于全新环境自动获取清单库
-- 主程序不再写死 `manifest_10133800.db`：自动使用同目录版本号最大的 `manifest_*.db`
-- 发布包整理：移除测试残留，README 重写为用户手册
+- `check_update.exe` を追加：リソースバージョンの確認 / 初回使用時にリソースマニフェスト DB を自動ダウンロード
+  - 同じディレクトリの `manifest_*.db` を自動走査し、最新バージョンを選択
+  - ネットで最新リソースバージョンと比較し、最新でない場合は自動ダウンロード + MD5 検証 + LZ4 展開
+  - ゲームの更新停止後、バージョン番号のデータベースが変わっていなければ実行時に「最新です」と表示。まっさらな環境でマニフェスト DB を自動取得する用途にも使える
+- メインプログラムは `manifest_10133800.db` をハードコードしなくなった：同じディレクトリでバージョン番号が最大の `manifest_*.db` を自動使用
+- リリース包の整理：テストの残りを削除し、README をユーザー向けマニュアルに書き直し
 
 ### v1.4（2026-08-11）
 
-- **新增贴纸动作下载与解包（310 个）**：下载类型新增「4.贴纸动作」
-  - 全部 `spine_motion_sticker_*.unity3d` 下载到 `CGSS_DOWN\贴纸\原文件unity3d\`
-  - 自动解出 spine 文件（skel / atlas / png / json / v38 json）到 `spine文件\SPMotionSticker_XXXXX\`
-  - 按 atlas 把每张贴纸裁成两帧 PNG 到 `贴纸PNG\SPMotionSticker_XXXXX_1.png / _2.png`
-  - 支持断点续跑：已下载 / 已解包的自动跳过
-- **预览小人镜像可切换**：新增「左右镜像(flip)」勾选框（flip 骨骼 scaleX -1/1）
-- 预览加载后自动提示检测到 N 骨架（老卡）还是 s 骨架（新卡），选错不会大头
+- **ステッカーモーションのダウンロードとアンパックを追加（310 個）**：ダウンロード種別に「4.ステッカーモーション」を追加
+  - すべての `spine_motion_sticker_*.unity3d` を `CGSS_DOWN\ステッカー\元ファイルunity3d\` にダウンロード
+  - spine ファイル（skel / atlas / png / json / v38 json）を自動で取り出し、`spineファイル\SPMotionSticker_XXXXX\` へ置く
+  - atlas に従って各ステッカーを 2 フレームの PNG に切り出し、`ステッカーPNG\SPMotionSticker_XXXXX_1.png / _2.png` へ
+  - 途中からの再開に対応：ダウンロード済み / アンパック済みは自動でスキップ
+- **プレビューの SDキャラミラーを切り替え可能**：「左右ミラー(flip)」の選択を追加（flip ボーンの scaleX を -1/1）
+- プレビュー読み込み後、N スケルトン（旧カード）か s スケルトン（新カード）かを自動表示。選び間違えても大頭にはならない
 
 ### v1.31（2025-08-11）
 
-- Spine 预览增加对老卡骨架选择提示
+- Spine プレビューに、旧カードのスケルトン選択のヒントを追加
 
 ### v1.3（2026-08-10）
 
-- **小人（SPC）朝向修复**：小人骨架用 flip 骨骼左右镜像（scaleX=-1），
-  角色朝右走、朝右看，方向一致（之前动画向右走但角色左视，看起来像倒退）
-- 导出 MP4 同步应用该镜像
-- **预览加载防呆**：
-  - 骨架栏误选图集 / 贴图等非骨架文件时直接报错并拒绝加载
-  - 图集引用的贴图不在已选贴图里时，明确提示「图集和贴图不配套」
-- 小人正确文件组合：骨架 SPSprachen_s.json + 图集 SPC{id}.atlas(.asset) + 贴图 SPC{id}.png
+- **SDキャラ（SPC）の向きを修正**：SDキャラのスケルトンは flip ボーンで左右ミラー（scaleX=-1）。
+  キャラは右向きに歩き、右を向くので向きが一致する（以前はアニメが右へ歩くのにキャラは左を向いていて、後退しているように見えた）
+- MP4 書き出しにも同じミラーを適用
+- **プレビュー読み込みの誤操作防止**：
+  - スケルトン欄にアトラス / テクスチャなどスケルトン以外を誤って選ぶと、その場でエラーにして読み込みを拒否
+  - アトラスが参照するテクスチャが選択済みテクスチャにない場合、「アトラスとテクスチャが対応していない」と明確に表示
+- SDキャラの正しいファイルの組み合わせ：スケルトン SPSprachen_s.json + アトラス SPC{id}.atlas(.asset) + テクスチャ SPC{id}.png
 
 ### v1.2（2026-08-10）
 
-- **Spine 预览 / 导出改用 WebGL 渲染**：
-  - 逐三角形共享顶点光栅化，消除三角形接缝网格线（脸部 / 影子不再有线框感）
-  - 修复背景大三角形被 canvas 2D 丢弃导致的「缺块」：雾气 / 半透明水面特效正常显示
-  - 混合模式按 Spine 规则（normal / additive / multiply / screen），特效不再发黑发暗
-  - WebGL 不可用时自动回退 canvas 2D + 2 倍超采样
-- 未成熟功能统一标注 beta：Spine 预览、卡面 Spina 动画、Spine 小人、导出 MP4、
-  表情 / 镜头、模型解包为 FBX
+- **Spine プレビュー / 書き出しを WebGL レンダリングに変更**：
+  - 三角形ごとに共有頂点でラスタライズし、三角形の継ぎ目のメッシュ線を消す（顔 / 影にワイヤーフレーム感が出ない）
+  - 背景の大きな三角形が canvas 2D に捨てられて「欠け」が出る不具合を修正：霧 / 半透明の水面エフェクトが正常に表示される
+  - ブレンドモードは Spine の規則（normal / additive / multiply / screen）。エフェクトが黒く暗くならない
+  - WebGL が使えない場合は canvas 2D + 2 倍スーパーサンプリングへ自動フォールバック
+- 未完成の機能は一律 beta 表記：Spine プレビュー、カードイラスト Spina アニメ、Spine SDキャラ、MP4 書き出し、
+  表情 / カメラ、モデルの FBX アンパック
 
 ### v1.1（2026-08-10）
 
-- 新增 **Spine 预览（beta）**（主菜单 4）：扫描已解包角色，浏览器直接看卡面 Spine 动画
-  - 图层顺序自动排好（bg → eff2 → chara → eff1 → fg）
-  - 模拟 additive / multiply 混合模式，特效不再发黑发暗
-- 新增 **Spine 2.1 共享小人骨架（beta）** 支持：
-  - 自动下载共享骨架 spine_sprachen_petit_chara_common.unity3d
-  - 逆向 CGSS Spine 2.1 二进制格式，解包时自动转 JSON（3.6 + 3.8.75）
-  - 坐标按 0.5 对齐 SPC 卡面图集，10 个内置动画可播可导入 3.8.75 编辑器
-- 卡面 Spina 动画（card_cartoon）解包增强：
-  - `.skel` 自动转两份 JSON：`*.json`（3.6 预览）+ `*_v38.json`（3.8.75 编辑器）
-  - RGB + A8 透明通道自动合成 `*_merged.png`，并生成 `*_v38.atlas`
-  - 二次解包不再误伤已生成的 JSON
-- 其他：查询菜单显示共享骨架资源名；atlas 自动复制一份 `.atlas` 方便编辑器打开
+- **Spine プレビュー（beta）** を追加（メインメニュー 4）：アンパック済みキャラを走査し、ブラウザでカードイラストの Spine アニメを直接見る
+  - レイヤー順を自動で並べる（bg → eff2 → chara → eff1 → fg）
+  - additive / multiply のブレンドモードを再現し、エフェクトが黒く暗くならない
+- **Spine 2.1 の共有 SDキャラスケルトン（beta）** に対応：
+  - 共有スケルトン spine_sprachen_petit_chara_common.unity3d を自動ダウンロード
+  - CGSS の Spine 2.1 バイナリ形式を解析し、アンパック時に自動で JSON へ変換（3.6 + 3.8.75）
+  - 座標を 0.5 で SPC のカードイラストアトラスに合わせ、内蔵アニメ 10 個は再生可能で、3.8.75 エディタにも読み込める
+- カードイラスト Spina アニメ（card_cartoon）のアンパックを強化：
+  - `.skel` を自動で 2 つの JSON に変換：`*.json`（3.6 プレビュー）+ `*_v38.json`（3.8.75 エディタ）
+  - RGB + A8 アルファチャンネルを自動合成して `*_merged.png` を作り、`*_v38.atlas` を生成
+  - 再アンパック時に、すでに生成した JSON を誤って壊さない
+- その他：検索メニューに共有スケルトンのリソース名を表示。atlas を `.atlas` として 1 部自動コピーし、エディタで開きやすくした
 
 ### v1.0
 
-- 首个发布版：数据表查找（3D 模型 / Spine / 歌曲 / 动作 / 谱面 / 舞台 / 卡面 / 语音）
-- 数据下载（按卡 / 按角色 / 按歌曲）+ LZ4 自动解压
-- 解包（模型转 FBX / 卡面 / 背景 / 语音 ACB→WAV）
-- 配套 Blender 脚本（自动贴图、表情转形态键）
+- 初回リリース版：データテーブル検索（3D モデル / Spine / 楽曲 / モーション / 譜面 / ステージ / カードイラスト / ボイス）
+- データダウンロード（カード単位 / キャラ単位 / 楽曲単位）+ LZ4 の自動展開
+- アンパック（モデルを FBX へ / カードイラスト / 背景 / ボイス ACB→WAV）
+- 対応する Blender スクリプト（自動テクスチャ、表情をシェイプキーへ）
 
 ---
 
-## 致谢
+## 謝辞
 
-- 资源清单 / 资源服务器结构参考 [mishiro](https://github.com/toyobayashi/mishiro)
-- 模型解包使用 AssetStudio
+- リソースマニフェスト / リソースサーバー構成は [mishiro](https://github.com/toyobayashi/mishiro) を参考
+- モデルのアンパックには AssetStudio を使用
 https://github.com/RazTools/Studio
-- 音频解码使用 deretore-toolkit（acb2wavs）
-- Spine 预览使用 Spine Runtimes（spine-core / spine-canvas / spine-webgl）
+- 音声デコードには deretore-toolkit（acb2wavs）を使用
+- Spine プレビューには Spine Runtimes（spine-core / spine-canvas / spine-webgl）を使用

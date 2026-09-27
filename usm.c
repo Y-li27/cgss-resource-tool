@@ -1,10 +1,10 @@
 /*
-* 针对CGSS的usm解包程序 
-* 用法： usm.exe <输入usm> [输出目录]
-* 默认当前目录的demux_out文件夹
-* 输出:
+* CGSS 向け usm アンパック
+* 使い方: usm.exe <入力usm> [出力ディレクトリ]
+* 省略時はカレントの demux_out フォルダ
+* 出力:
 * video.m2v
-* audio.adx(有音频时才会出现)
+* audio.adx（音声があるときのみ）
 */
 #include<stdio.h>
 #include<stdlib.h>
@@ -23,7 +23,7 @@ static unsigned be16(const unsigned char *p){
 static unsigned char videoMask1[0x20];
 static unsigned char videoMask2[0x20];
 static unsigned char audioMask[0x20];
-// 我也不知道原理，大佬写的cpp脚本抄的
+// 原理は不明。詳しい人が書いた cpp を写した
 static void InitMask(unsigned int key1,unsigned int key2){
     unsigned char t[0x20];
     t[0x00] = ((unsigned char *)&key1)[0];
@@ -73,13 +73,13 @@ static void MaskVideo(unsigned char *data,int size){
     
     if(size < 0x200) return ;
      unsigned char mask[0x20];
-    /* 第一遍: 从 0x100 到最后, mask 带反馈 */
+    /* 1パス目: 0x100 から末尾まで。mask はフィードバック付き */
     memcpy(mask, videoMask2, 0x20);
     for (int i = 0x100; i < size; i++){
         data[i] ^= mask[i & 0x1F];
         mask[i & 0x1F] = data[i] ^ videoMask2[i & 0x1F];
     }
-    /* 第二遍: 前 0x100 字节 */
+    /* 2パス目: 先頭 0x100 バイト */
     memcpy(mask, videoMask1, 0x20);
     for (int i = 0; i < 0x100; i++){
         mask[i & 0x1F] ^= data[0x100 + i];
@@ -103,9 +103,9 @@ int main(int argc,char *argv[]){
     SetConsoleCP(CP_UTF8);
     SetConsoleOutputCP(CP_UTF8);
     if(argc < 2){
-        fprintf(stderr,"用法: usm_demux_example.exe <输入.usm> [输出目录]\n");
-        fflush(stdout);    // 先把结果全部输出，再等按键，避免重定向时和 pause 混在一起
-        system("pause");   // 双击 exe 时窗口不闪退，按任意键退出
+        fprintf(stderr,"使い方: usm_demux_example.exe <入力.usm> [出力ディレクトリ]\n");
+        fflush(stdout);    // 先に結果をすべて出してからキー待ち。リダイレクト時に pause と混ざらないように
+        system("pause");   // exe をダブルクリックしたときすぐ閉じない。任意のキーで終了
         return 1;
     }
     const char *infile = argv[1];
@@ -121,7 +121,7 @@ int main(int argc,char *argv[]){
 
     FILE *fp = fopen(infile, "rb");
     if(!fp){
-        fprintf(stderr,"打开%s文件失效\n", infile);
+        fprintf(stderr,"%s を開けません\n", infile);
         return 1;
     }
     fseek(fp,0,SEEK_END);
@@ -152,13 +152,13 @@ int main(int argc,char *argv[]){
         fread(data,1,dlen,fp);
 
         if(memcmp(h,"@SFV",4) == 0 && typ == 0){
-        /* 视频数据块: 解密后连续写进 video.m2v */
+        /* 動画データブロック: 復号後、連続して video.m2v へ書く */
             MaskVideo(data, dlen);
             if (!vo) vo = fopen(vpath, "wb");
             fwrite(data, 1, dlen, vo);
             nvideo++;
         } else if (memcmp(h, "@SFA", 4) == 0 && typ == 0){
-            /* 音频数据块: 解密后连续写进 audio.adx */
+            /* 音声データブロック: 復号後、連続して audio.adx へ書く */
             MaskAudio(data, dlen);
             if (!ao) ao = fopen(apath, "wb");
             fwrite(data, 1, dlen, ao);
@@ -171,8 +171,8 @@ int main(int argc,char *argv[]){
     fclose(fp);
     if(vo) fclose(vo);
     if(ao) fclose(ao);
-    printf("完成: 共 %u 个块, 视频块 %u 个, 音频块 %u 个\n",
+    printf("完了: ブロック %u 個, 動画 %u 個, 音声 %u 個\n",
            nchunk, nvideo, naudio);
-    printf("输出目录: %s\n", outdir);
+    printf("出力ディレクトリ: %s\n", outdir);
     return 0;
 }

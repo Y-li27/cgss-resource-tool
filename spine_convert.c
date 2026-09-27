@@ -1,11 +1,11 @@
-// spine_convert.c: CGSS Spine 3.6 二进制 .skel -> Spine 3.6 JSON
-// 与 Python 版 skel2json.py / 浏览器版 cgss_skel_parser.js 输出一致。
+// spine_convert.c: CGSS Spine 3.6 バイナリ .skel -> Spine 3.6 JSON
+// Python 版 skel2json.py / ブラウザ版 cgss_skel_parser.js と出力が一致する。
 //
-// CGSS skel 与标准 Spine 3.6 二进制的差异：
-//   1. 文件头 44 字节：0x1C + 27 字节哈希 + 版本串 + 9 字节数据；
-//   2. float / uint32 / int16 都是大端（标准是小端）；
-//   3. 没有 nonessential 段（无骨骼颜色、mesh 的 edges/width/height、
-//      boundingbox/path/point/clipping 的颜色）。
+// CGSS skel と標準 Spine 3.6 バイナリの差:
+//   1. ヘッダ 44 バイト: 0x1C + 27 バイトハッシュ + バージョン文字列 + 9 バイトデータ;
+//   2. float / uint32 / int16 はすべてビッグエンディアン（標準はリトル）;
+//   3. nonessential 区間が無い（ボーン色、mesh の edges/width/height、
+//      boundingbox/path/point/clipping の色が無い）。
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -13,7 +13,7 @@
 #include "spine_convert.h"
 #include "util.h"
 
-/* ---------------- 二进制读取 ---------------- */
+/* ---------------- バイナリ読み込み ---------------- */
 typedef struct {
     const unsigned char *b;
     long len;
@@ -86,7 +86,7 @@ static char *rd_str(Rd *r){
     return s;
 }
 
-/* ---------------- 动态字符串数组 ---------------- */
+/* ---------------- 動的文字列配列 ---------------- */
 typedef struct {
     char **a;
     int n, cap;
@@ -108,7 +108,7 @@ static void sa_free(StrArr *s){
     memset(s, 0, sizeof *s);
 }
 
-/* ---------------- JSON 输出工具 ---------------- */
+/* ---------------- JSON 出力ヘルパ ---------------- */
 static void json_str(FILE *f, const char *s){
     if (!s) s = "";
     fputc('"', f);
@@ -135,7 +135,7 @@ static void json_float(FILE *f, float x){
     if (x == 0){ fputs("0", f); return; }
     char buf[64];
     snprintf(buf, sizeof buf, "%.6f", (double)x);
-    /* 去掉末尾多余的 0 和可能的小数点 */
+    /* 末尾の余分な 0 と小数点を除く */
     int len = (int)strlen(buf);
     char *dot = strchr(buf, '.');
     if (dot){
@@ -168,8 +168,8 @@ static void json_u32_rgb(FILE *f, unsigned c){
     fprintf(f, "\"%02x%02x%02x\"", (c >> 16) & 0xff, (c >> 8) & 0xff, c & 0xff);
 }
 
-/* ---------------- 顶点 ---------------- */
-/* 输出 JSON 顶点数组到 f；返回 1 表示权重顶点（数组带 boneCount 前缀），0 表示普通顶点 */
+/* ---------------- 頂点 ---------------- */
+/* JSON 頂点配列を f へ出力。1=ウェイト頂点（配列先頭に boneCount）、0=通常頂点 */
 static int emit_vertices(FILE *f, Rd *r, int vc){
     if (!rd_bool(r)){
         fputc('[', f);
@@ -201,7 +201,7 @@ static int emit_vertices(FILE *f, Rd *r, int vc){
     return 1;
 }
 
-/* ---------------- 主解析（流式输出 JSON） ---------------- */
+/* ---------------- 本解析（JSON を逐次出力） ---------------- */
 typedef struct {
     StrArr bones, slots, ik, transform, path, skins, events;
 } Ctx;
@@ -340,7 +340,7 @@ static int emit_skin(FILE *f, Rd *r, Ctx *ctx, const char *skin_name, int *first
     return 1;
 }
 
-/* 动画帧 JSON 公共前缀（time）与 curve */
+/* アニメーションフレーム JSON の共通接頭辞（time）と curve */
 static void frame_begin(FILE *f, Rd *r, int *first){
     if (*first) *first = 0; else fputc(',', f);
     float t; rd_f32(r, &t);
@@ -625,7 +625,7 @@ static void emit_animation(FILE *f, Rd *r, Ctx *ctx, const char *name){
 }
 
 static int convert_skel_fp(FILE *in, const wchar_t *json_path, const char *spine_ver){
-    /* 读整个文件 */
+    /* ファイル全体を読む */
     fseek(in, 0, SEEK_END);
     long sz = ftell(in);
     fseek(in, 0, SEEK_SET);
@@ -700,8 +700,8 @@ static int convert_skel_fp(FILE *in, const wchar_t *json_path, const char *spine
         free(att);
     }
 
-    fputc(']', f);   /* 闭合 slots 数组 */
-    /* ik（空则不输出，与 Python 一致） */
+    fputc(']', f);   /* slots 配列を閉じる */
+    /* ik（空なら出力しない。Python と一致） */
     long nik = rd_varint(&r);
     if (nik > 0){
         fputs(",\"ik\":[", f);
@@ -812,7 +812,7 @@ static int convert_skel_fp(FILE *in, const wchar_t *json_path, const char *spine
         fputs("]", f);
     }
 
-    /* skins：default 可能为空（null），后面再跟若干命名皮肤 */
+    /* skins: default は空（null）のことがある。その後に名前付きスキンが続く */
     fputs(",\"skins\":{", f);
     int skin_first = 1;
     emit_skin(f, &r, &ctx, "default", &skin_first);
@@ -823,7 +823,7 @@ static int convert_skel_fp(FILE *in, const wchar_t *json_path, const char *spine
         free(sk_name);
     }
     fputs("}", f);
-    /* events：{"名":{"int":..,"float":..,"string":..}}（空则不输出） */
+    /* events: {"名":{"int":..,"float":..,"string":..}}（空なら出力しない） */
     long nev = rd_varint(&r);
     if (nev > 0){
         fputs(",\"events\":{", f);
@@ -891,16 +891,16 @@ int convert_skel_to_json_v38(const char *skel_path, const char *json_path){
     return convert_skel_to_json_v38_w(ws, wj);
 }
 
-/* ================= Spine 2.1（小人 SPSprachen 共享骨架） =================
- * 与 3.6 相同的 44 字节 CGSS 头，但数据布局是 Spine 2.1：
- *   bones:    parent 每个骨骼都存(varint+1)；x,y,scaleX,scaleY,rotation,length,
- *             flipX,flipY,inheritScale,inheritRotation（无 shear/transform）
- *   slots:    无 dark，additiveBlending 布尔
+/* ================= Spine 2.1（SDキャラ SPSprachen 共有スケルトン） =================
+ * 3.6 と同じ 44 バイト CGSS ヘッダだが、データ配置は Spine 2.1:
+ *   bones:    parent は各ボーンごとに保存（varint+1）。x,y,scaleX,scaleY,rotation,length,
+ *             flipX,flipY,inheritScale,inheritRotation（shear/transform 無し）
+ *   slots:    dark 無し。additiveBlending はブール
  *   attachments: region/boundingbox/mesh/skinnedmesh
  *   animations: color=4, attachment=3, rotate=1, translate=2, scale=0,
- *             flipX=5, flipY=6；无 two-color/shear/transform/path
- *   drawOrder: offsetCount+offsets 在前，time 在最后
- * scale 用于把骨架坐标对齐到配套 atlas（SPC 卡面 atlas 是 0.5 倍分辨率）。
+ *             flipX=5, flipY=6。two-color/shear/transform/path 無し
+ *   drawOrder: offsetCount+offsets が先、time が最後
+ * scale はスケルトン座標を対応する atlas に合わせる（SPC カードイラスト atlas は 0.5 倍解像度）。
  */
 
 static void emit_attachment21(FILE *f, Rd *r, Ctx *ctx, const char *key, float scale){
@@ -929,7 +929,7 @@ static void emit_attachment21(FILE *f, Rd *r, Ctx *ctx, const char *key, float s
         fputs(",\"color\":", f); json_u32_color(f, c);
         fputc('}', f);
         if (path_own) free(path);
-    } else if (type == 1){  /* boundingbox: 无权重 float 数组 */
+    } else if (type == 1){  /* boundingbox: ウェイト無しの float 配列 */
         long vc = rd_varint(r);
         fputs("{\"type\":\"boundingbox\",\"name\":", f); json_str(f, name);
         fprintf(f, ",\"vertexCount\":%ld,\"vertices\":[", vc);
@@ -939,7 +939,7 @@ static void emit_attachment21(FILE *f, Rd *r, Ctx *ctx, const char *key, float s
             json_float(f, v * scale);
         }
         fputs("]}", f);
-    } else if (type == 2){  /* mesh（无权重） */
+    } else if (type == 2){  /* mesh（ウェイト無し） */
         char *path = rd_str(r);
         int path_own = path != NULL;
         if (!path) path = name;
@@ -972,7 +972,7 @@ static void emit_attachment21(FILE *f, Rd *r, Ctx *ctx, const char *key, float s
         long hull = rd_varint(r);
         fprintf(f, ",\"hull\":%ld}", hull);
         if (path_own) free(path);
-    } else if (type == 3){  /* skinnedmesh -> 3.6 加权 mesh 数组 */
+    } else if (type == 3){  /* skinnedmesh -> 3.6 のウェイト付き mesh 配列 */
         char *path = rd_str(r);
         int path_own = path != NULL;
         if (!path) path = name;
@@ -1101,7 +1101,7 @@ static void emit_animation21(FILE *f, Rd *r, Ctx *ctx, const char *name, float s
             for (j = 0; j < tt_count; j++){
                 int ttype = rd_byte(r);
                 long fc = rd_varint(r);
-                if (ttype == 5 || ttype == 6){  /* flip 时间线在 3.6 JSON 无对应，跳过 */
+                if (ttype == 5 || ttype == 6){  /* flip タイムラインは 3.6 JSON に対応が無いのでスキップ */
                     for (long k = 0; k < fc; k++){
                         float t; rd_f32(r, &t);
                         rd_bool(r);
@@ -1210,7 +1210,7 @@ static void emit_animation21(FILE *f, Rd *r, Ctx *ctx, const char *name, float s
         fputs("}", f);
     }
 
-    /* drawOrder: 2.1 是 offsets 在前 time 在后 */
+    /* drawOrder: 2.1 は offsets が先、time が後 */
     n = rd_varint(r);
     if (n > 0){
         SEC21_BEGIN();
@@ -1286,7 +1286,7 @@ static int convert_skel21_fp(FILE *in, const wchar_t *json_path, const char *spi
     long nb = rd_varint(&r);
     for (long i = 0; i < nb; i++){
         char *name = rd_str(&r);
-        long parent = rd_varint(&r) - 1;   /* 2.1: 每个骨骼都存 parent */
+        long parent = rd_varint(&r) - 1;   /* 2.1: 各ボーンが parent を持つ */
         float x, y, sx, sy, rot, len;
         rd_f32(&r, &x); rd_f32(&r, &y);
         rd_f32(&r, &sx); rd_f32(&r, &sy);
@@ -1314,7 +1314,7 @@ static int convert_skel21_fp(FILE *in, const wchar_t *json_path, const char *spi
     }
     fputs("]", f);
 
-    /* ik（2.1 顺序：bones -> ik -> slots） */
+    /* ik（2.1 の順序: bones -> ik -> slots） */
     long nik = rd_varint(&r);
     if (nik > 0){
         fputs(",\"ik\":[", f);
@@ -1436,7 +1436,7 @@ int convert_skel21_to_json_v38_w(const wchar_t *skel_path, const wchar_t *json_p
     return convert_skel21_to_json_ver_w(skel_path, json_path, "3.8.75", scale);
 }
 
-/* 识别 2.1 版骨架（头 44 字节里的版本串不是 3.x）并转换 */
+/* 2.1 版スケルトンを判定（ヘッダ 44 バイト内のバージョン文字列が 3.x でない）して変換 */
 static int skel21_version(const wchar_t *skel_path){
     FILE *in = _wfopen(skel_path, L"rb");
     if (!in) return 0;
@@ -1444,10 +1444,10 @@ static int skel21_version(const wchar_t *skel_path){
     size_t got = fread(h, 1, sizeof h, in);
     fclose(in);
     if (got < 36 || h[0] != 0x1C) return 0;
-    /* 头: 0x1C + 27字节hash + 版本长度字节 + 版本串 */
+    /* ヘッダ: 0x1C + 27バイト hash + バージョン長バイト + バージョン文字列 */
     long vlen = h[28];
     if (vlen < 2 || vlen > 20 || 29 + vlen > 44) return 0;
-    /* 3.6.47 / 2.1.27 等，长度 6 */
+    /* 3.6.47 / 2.1.27 など。長さ 6 */
     if (vlen == 7 && 29 + 6 <= (int)got){
         if (memcmp(h + 29, "3.6.", 4) == 0 || memcmp(h + 29, "3.8.", 4) == 0) return 0;
         if (memcmp(h + 29, "2.1.", 4) == 0) return 1;
@@ -1457,7 +1457,7 @@ static int skel21_version(const wchar_t *skel_path){
 
 int convert_skels_in_dir(const wchar_t *dir){
     wchar_t pat[1300];
-    /* 兼容 AssetStudio 导出的 .skel 与 .skel.asset 两种命名 */
+    /* AssetStudio 書き出しの .skel と .skel.asset の両方に対応 */
     swprintf(pat, 1300, L"%ls\\*.skel*", dir);
     WIN32_FIND_DATAW fd;
     HANDLE h = FindFirstFileW(pat, &fd);
@@ -1465,13 +1465,13 @@ int convert_skels_in_dir(const wchar_t *dir){
     int n = 0;
     do {
         if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) continue;
-        /* 跳过上次生成的 .json（*.skel* 会匹配到 *.skel.json，避免二次转换截断文件） */
+        /* 前回生成した .json はスキップ（*.skel* が *.skel.json に一致し、再変換でファイルが切れるのを防ぐ） */
         {
             const wchar_t *fn = fd.cFileName;
             const wchar_t *dot = wcsrchr(fn, L'.');
             if (dot && _wcsicmp(dot, L".json") == 0) continue;
         }
-        /* 校验文件头 0x1C（CGSS skel 头），防止把文本文件当二进制解析 */
+        /* ヘッダ 0x1C（CGSS skel ヘッダ）を検証。テキストをバイナリとして解析しない */
         {
             wchar_t probe[1300];
             swprintf(probe, 1300, L"%ls\\%ls", dir, fd.cFileName);
@@ -1485,7 +1485,7 @@ int convert_skels_in_dir(const wchar_t *dir){
         wchar_t src[1300], dst[1300];
         swprintf(src, 1300, L"%ls\\%ls", dir, fd.cFileName);
         wcscpy(dst, src);
-        /* 去掉 .skel.asset / .skel 后缀，统一生成 name.json + name_v38.json */
+        /* .skel.asset / .skel 拡張子を外し、name.json と name_v38.json を生成 */
         {
             size_t len = wcslen(dst);
             if (len > 11 && _wcsicmp(dst + len - 11, L".skel.asset") == 0)
@@ -1514,12 +1514,12 @@ int convert_skels_in_dir(const wchar_t *dir){
             }
             int v38ok = is21 ? (convert_skel21_to_json_v38_w(src, v38, 0.5f) == 0)
                              : (convert_skel_to_json_v38_w(src, v38) == 0);
-            printf("  已生成 %ls + %ls%s\n", fd.cFileName,
+            printf("  生成 %ls + %ls%s\n", fd.cFileName,
                    wcsrchr(v38, L'\\') ? wcsrchr(v38, L'\\') + 1 : v38,
-                   v38ok ? "" : "（3.8版失败）");
+                   v38ok ? "" : "（3.8版失敗）");
             n++;
         } else {
-            printf("  转换失败 %ls\n", fd.cFileName);
+            printf("  変換失敗 %ls\n", fd.cFileName);
         }
     } while (FindNextFileW(h, &fd));
     FindClose(h);

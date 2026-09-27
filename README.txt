@@ -1,90 +1,91 @@
 ==================================================
-  CGSS 资源工具 v1.41
-  查询 / 下载 / 解包 / Spine 预览 一体化
+  CGSS リソースツール v1.41
+  検索 / ダウンロード / アンパック / Spine プレビュー 一体型
 ==================================================
 
-【这是什么】
+【これは何か】
 
-面向 CGSS（偶像大师 灰姑娘女孩 星光舞台）的资源工具：
-查询资源文件名与 hash、从官方资源服务器下载、解包成
-PNG / FBX / WAV / Spine 工程文件，并在浏览器里预览卡面动画。
+CGSS（アイドルマスター シンデレラガールズ スターライトステージ）向けのリソースツール：
+リソースのファイル名と hash を検索し、公式リソースサーバーからダウンロードして、
+PNG / FBX / WAV / Spine プロジェクトファイルにアンパックし、
+ブラウザでカードイラストアニメをプレビューする。
 
-纯 C 编写、静态链接，本目录解压后双击即可运行。
+純粋な C で記述し、静的リンク。このディレクトリを展開したらダブルクリックで実行できる。
 
-游戏相关资源的著作权归 BANDAI NAMCO Entertainment Inc. 所有。
-本工具仅用于学习交流，请勿用于商业用途；下载、解包的内容请于
-24 小时内删除。
-
-
-【目录说明】
-
-  CGSS_Script.exe            主程序（双击运行）
-  check_update.exe           资源清单检查 / 下载工具（可选）
-  master.mdb                 游戏主库（卡片/角色/歌曲数据）
-  manifest_10133800.db       资源清单库（资源名 -> hash）
-  spine_preview\             Spine 浏览器预览网页（主菜单 4 使用）
-  AssetStudio\               模型解包引擎（.NET 7，可选）
-  acb2wavs.exe + *.dll       语音解码（可选）
-  cgss_apply_textures.py     Blender 贴图脚本（可选）
-  cgss_anim_to_shapekeys.py  Blender 形态键脚本（可选）
-
-注：CGSS_ResourceTool_nodb.zip 不含 master.mdb 和
-manifest_10133800.db，需要自行准备数据库。
+ゲーム関連リソースの著作権は BANDAI NAMCO Entertainment Inc. に帰属します。
+本ツールは学習・交流のみに使用してください。商用利用はしないでください。
+ダウンロード・アンパックした内容は 24 時間以内に削除してください。
 
 
-【快速开始】
+【ディレクトリの説明】
 
-1. 解压，保持所有文件在同一目录
-2. 双击 CGSS_Script.exe
-3. 主菜单选择：
-     1.数据表查找数据    2.数据下载并解析
-     3.解包              4.打开Spine预览(beta)
+  CGSS_Script.exe            メインプログラム（ダブルクリックで実行）
+  check_update.exe           リソースマニフェストの確認 / ダウンロードツール（任意）
+  master.mdb                 ゲームのメイン DB（カード/キャラ/楽曲データ）
+  manifest_10133800.db       リソースマニフェスト DB（リソース名 -> hash）
+  spine_preview\             Spine ブラウザプレビューのウェブページ（メインメニュー 4 で使用）
+  AssetStudio\               モデルアンパックエンジン（.NET 7、任意）
+  acb2wavs.exe + *.dll       ボイスのデコード（任意）
+  cgss_apply_textures.py     Blender テクスチャスクリプト（任意）
+  cgss_anim_to_shapekeys.py  Blender シェイプキースクリプト（任意）
 
-下载的资源保存在本目录 CGSS_DOWN\ 下，按角色/类型分目录。
-
-
-【check_update.exe 是什么】
-
-游戏已停止更新新内容，数据库为最终版本。check_update 用于：
-
-  - 确认清单库是最新版本（运行后显示"已是最新"即可）
-  - 没有数据库时自动补齐：清单库 + master.mdb 都会自动下载
-    （精简版 _nodb 解压后运行一次，两个库就齐了）
-
-运行方式：放在与 CGSS_Script.exe 相同目录后双击，
-或命令行执行：check_update.exe [目录]
-
-完整版已含两个库，运行时会显示"已是最新 / master.mdb 已存在"。
+注：CGSS_ResourceTool_nodb.zip には master.mdb と
+manifest_10133800.db が含まれない。データベースは自分で用意する。
 
 
-【依赖】
+【クイックスタート】
 
-  - 模型解包为 FBX：需要安装 .NET 7 Desktop Runtime
-  - 语音解码：acb2wavs.exe 及同目录 DLL 请不要删除或隔离
-  - Blender 脚本：配合 Blender 使用（可选）
+1. 展開し、すべてのファイルを同じディレクトリに置く
+2. CGSS_Script.exe をダブルクリック
+3. メインメニューで選択：
+     1.データテーブル検索    2.データダウンロードと解析
+     3.アンパック              4.Spineプレビューを開く(beta)
 
-
-【常见问题】
-
-Q: 解包报"启动 AssetStudio.CLI 失败"？
-A: 安装 .NET 7 Desktop Runtime。
-
-Q: 语音解码无输出？
-A: 确认 acb2wavs.exe 和同目录 DLL 未被杀毒软件删除。
-
-Q: 提示缺少数据库？
-A: 完整包解压后数据库应与 exe 同目录；
-   精简版请自行准备，或运行 check_update.exe 获取清单库。
-
-Q: CLI 导出的 FBX 身体没有贴图？
-A: 带贴图的 body_FBX 请用 AssetStudio GUI 导出
-   （解包菜单内有详细步骤）。
+ダウンロードしたリソースは、このディレクトリの CGSS_DOWN\ 以下に、キャラ / 種別ごとのディレクトリで保存される。
 
 
-【版本】
+【check_update.exe とは】
 
-v1.42：check_update 新增 master.mdb 自动补齐，_nodb 精简版自给自足。
-v1.41：新增 check_update.exe；主程序自动选用最新 manifest_*.db；
-        发布包整理，README 重写。
-v1.4 ：新增贴纸动作下载与解包（310 个）；预览小人镜像可切换。
-更早版本见仓库 README.md。
+ゲームは新規コンテンツの更新を停止しており、データベースは最終バージョンです。check_update の用途：
+
+  - マニフェスト DB が最新バージョンであることを確認（実行後に「最新です」と出ればよい）
+  - データベースがない場合の自動補完：マニフェスト DB と master.mdb の両方を自動ダウンロード
+    （軽量版 _nodb は展開後に一度実行すれば、2 つの DB が揃う）
+
+実行方法：CGSS_Script.exe と同じディレクトリに置いてダブルクリック、
+またはコマンドラインで：check_update.exe [ディレクトリ]
+
+完全版には両方の DB が含まれており、実行時に「最新です / master.mdb は既存」と表示される。
+
+
+【依存関係】
+
+  - モデルを FBX にアンパック：.NET 7 Desktop Runtime のインストールが必要
+  - ボイスのデコード：acb2wavs.exe と同じディレクトリの DLL は削除したり隔離したりしないこと
+  - Blender スクリプト：Blender と組み合わせて使う（任意）
+
+
+【よくある質問】
+
+Q: アンパックで「AssetStudio.CLI の起動に失敗」と出る？
+A: .NET 7 Desktop Runtime をインストールする。
+
+Q: ボイスのデコードで出力がない？
+A: acb2wavs.exe と同じディレクトリの DLL がウイルス対策ソフトに削除されていないか確認する。
+
+Q: データベース不足と表示される？
+A: 完全版は展開後、データベースが exe と同じディレクトリにあるはず。
+   軽量版は自分で用意するか、check_update.exe を実行してマニフェスト DB を取得する。
+
+Q: CLI で書き出した FBX のボディにテクスチャがない？
+A: テクスチャ付きの body_FBX は AssetStudio GUI で書き出す
+   （アンパックメニュー内に詳しい手順あり）。
+
+
+【バージョン】
+
+v1.42：check_update に master.mdb の自動補完を追加。_nodb 軽量版は自己完結。
+v1.41：check_update.exe を追加。メインプログラムは最新の manifest_*.db を自動選択。
+        リリース包を整理し、README を書き直し。
+v1.4 ：ステッカーモーションのダウンロードとアンパックを追加（310 個）。プレビューの SDキャラミラーを切り替え可能。
+それより前のバージョンはリポジトリの README.md を参照。

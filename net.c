@@ -8,9 +8,9 @@
 
 #define CDN_HOST L"asset-starlight-stage.akamaized.net"
 
-// net.c: CDN 下载 + LZ4
+// net.c: CDN ダウンロード + LZ4
 
-/* LZ4 块解压（移植 cgss_lz4.py） */
+/* LZ4 ブロック展開（cgss_lz4.py から移植） */
 static unsigned char *lz4_block_decompress(const unsigned char *src, int n, int out_size){
     unsigned char *out = (unsigned char*)malloc(out_size > 0 ? out_size : 1);
     if (!out) return NULL;
@@ -53,18 +53,18 @@ int cgss_lz4_decompress(const unsigned char *raw, int raw_len, unsigned char **o
     return *out ? 0 : -1;
 }
 
-/* ================== HTTP 下载 ================== */
+/* ================== HTTP ダウンロード ================== */
 
 static HINTERNET g_sess = NULL, g_conn = NULL;
 
-/* ??/????????????? TLS ?? */
+/* 直接接続／プロキシなし。TLS バージョンはシステム任せ */
 
 static void http_init(void){
     if (g_sess) return;
     g_sess = WinHttpOpen(L"CGSS-DL/1.0", WINHTTP_ACCESS_TYPE_NO_PROXY,
                          WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0);
     if (!g_sess) return;
-    DWORD to = 60000;   /* ??/??/??/???? 60 ? */
+    DWORD to = 60000;   /* 名前解決/接続/送信/受信タイムアウト 60 秒 */
     WinHttpSetTimeouts(g_sess, to, to, to, to);
     g_conn = WinHttpConnect(g_sess, CDN_HOST, INTERNET_DEFAULT_HTTPS_PORT, 0);
 }
@@ -131,7 +131,7 @@ static int http_get(const char *url_path, const wchar_t *wsave){
                     printf("(%lldKB)\n", (long long)(total / 1024));
                     rc = 0;
                 } else {
-                    printf("下载未完成 err=%lu\n", (unsigned long)GetLastError());
+                    printf("ダウンロード未完了 err=%lu\n", (unsigned long)GetLastError());
                     DeleteFileW(wsave);
                 }
             }
@@ -141,15 +141,15 @@ static int http_get(const char *url_path, const wchar_t *wsave){
     return rc;
 }
 
-/* 下载一个资源并保存到 save_dir，.unity3d 自动 LZ4 解压 */
+/* リソースを1つダウンロードして save_dir に保存。.unity3d は自動で LZ4 展開 */
 int dl_one(const char *name, const char *hash, const wchar_t *save_dir){
     char url_path[512];
-    /* CDN 路径类别(实测确认):
+    /* CDN パス種別（実機確認済み）:
      *   .unity3d -> AssetBundles
      *   .acb     -> Sound
      *   .usm     -> Movie
      *   .bdb     -> Generic
-     * 猜错类别会 403 */
+     * 種別を誤ると 403 */
     const char *cat = "AssetBundles";
     if (strstr(name, ".acb"))      cat = "Sound";
     else if (strstr(name, ".usm")) cat = "Movie";
@@ -160,15 +160,15 @@ int dl_one(const char *name, const char *hash, const wchar_t *save_dir){
     wchar_t wfile[512];
     utf8_to_wide(base_name(name), wfile, 512);
     swprintf(wsave, 1024, L"%ls\\%ls", save_dir, wfile);
-    printf("下载 %s ... ", name);
+    printf("ダウンロード %s ... ", name);
     if (http_get(url_path, wsave) != 0){
-        printf("失败(HTTP错误)\n");
+        printf("失敗(HTTPエラー)\n");
         return -1;
     }
-    /* .unity3d ?? LZ4 ?? */
+    /* .unity3d は LZ4 展開 */
     if (strstr(name, ".unity3d")){
         FILE *f = _wfopen(wsave, L"rb");
-        if (!f){ printf("打开失败\n"); return -1; }
+        if (!f){ printf("オープン失敗\n"); return -1; }
         fseek(f, 0, SEEK_END);
         long sz = ftell(f);
         fseek(f, 0, SEEK_SET);
@@ -180,24 +180,24 @@ int dl_one(const char *name, const char *hash, const wchar_t *save_dir){
         if (cgss_lz4_decompress(raw, (int)sz, &out, &out_len) == 0 && out && out_len > 0){
             FILE *fo = _wfopen(wsave, L"wb");
             if (fo){
-                fwrite(out, 1, out_len, fo);    //将out写入fo文件
+                fwrite(out, 1, out_len, fo);    // out を fo ファイルへ書き込む
                 fclose(fo);
-                printf("完成(已LZ4解压 %d -> %d)\n", (int)sz, out_len);
+                printf("完了(LZ4展開済み %d -> %d)\n", (int)sz, out_len);
             } else {
-                printf("写文件失败\n");
+                printf("ファイル書き込み失敗\n");
             }
         } else {
-            printf("完成(非LZ4包裹)\n");
+            printf("完了(LZ4ラップではない)\n");
         }
         free(raw);
         free(out);
     } else {
-        printf("完成\n");
+        printf("完了\n");
     }
     return 0;
 }
 
-/* ================== 清单查询与资源收集 ================== */
+/* ================== マニフェスト照会とリソース収集 ================== */
 
 typedef struct {
     char name[256];

@@ -14,7 +14,7 @@ void enable_vt(void){
     if (hOut != INVALID_HANDLE_VALUE && GetConsoleMode(hOut, &mode)){
         SetConsoleMode(hOut, mode | ENABLE_VIRTUAL_TERMINAL_PROCESSING);
     }
-    SetConsoleOutputCP(CP_UTF8);   /* 和你 main.c 一样: 输出强制 UTF-8 */
+    SetConsoleOutputCP(CP_UTF8);   /* main.c と同じ: 出力を UTF-8 に固定する */
 }
 
 int console_rows(void){
@@ -47,10 +47,10 @@ int pager_pick(const char *title, def *Def,int multi){
         int total_pages = (count + pager_row - 1) / pager_row;
         if(pe > count -1) pe = count - 1;
         if(multi){
-            printf("%s   [第%d页/%d页] 已选%d ↑↓选择  Space勾选  A全选/全不选  PgUp/PgDn翻页  Enter确认  Esc取消\n\n",title,pager + 1,total_pages,n_state);
+            printf("%s   [第%dページ/%dページ] 選択済%d ↑↓選択  Space選択  A全選択/全解除  PgUp/PgDnページ移動  Enter確定  Escキャンセル\n\n",title,pager + 1,total_pages,n_state);
         }
         else{
-            printf("%s   [第%d页/%d页] ↑↓选择  PgUp/PgDn翻页  Enter确认  Esc取消\n\n",title,pager + 1,total_pages);
+            printf("%s   [第%dページ/%dページ] ↑↓選択  PgUp/PgDnページ移動  Enter確定  Escキャンセル\n\n",title,pager + 1,total_pages);
         }
         for(int i = ps;i <= pe;i++){
             if(multi){
@@ -119,7 +119,7 @@ int pager_pick(const char *title, def *Def,int multi){
         for(int i = 0;i < count;i++){
             Def[i].state = 0;
         }
-        return -1;             /* Esc: 清完勾选直接返回取消, 别往下走 */
+        return -1;             /* Esc: 選択をクリアしてキャンセルを返す。先へ進まない */
     }
     if(!multi){
         if(Def[sel].func != NULL){
@@ -129,7 +129,7 @@ int pager_pick(const char *title, def *Def,int multi){
     }
     return n_state;
 }
-/* 支持传入双sqlite3 参数函数和 Def*/
+/* sqlite3 を2つ受け取る関数と Def に対応*/
 int pager_picks(const char *title, dbdef *Def,sqlite3 *db,sqlite3 *rdb,int multi){
     int count = 0;
     int sel = 0;
@@ -152,10 +152,10 @@ int pager_picks(const char *title, dbdef *Def,sqlite3 *db,sqlite3 *rdb,int multi
         int total_pages = (count + pager_row - 1) / pager_row;
         if(pe > count -1) pe = count - 1;
         if(multi){
-            printf("%s   [第%d页/%d页] 已选%d ↑↓选择  Space勾选  A全选/全不选  PgUp/PgDn翻页  Enter确认  Esc取消\n\n",title,pager + 1,total_pages,n_state);
+            printf("%s   [第%dページ/%dページ] 選択済%d ↑↓選択  Space選択  A全選択/全解除  PgUp/PgDnページ移動  Enter確定  Escキャンセル\n\n",title,pager + 1,total_pages,n_state);
         }
         else{
-            printf("%s   [第%d页/%d页] ↑↓选择  PgUp/PgDn翻页  Enter确认  Esc取消\n\n",title,pager + 1,total_pages);
+            printf("%s   [第%dページ/%dページ] ↑↓選択  PgUp/PgDnページ移動  Enter確定  Escキャンセル\n\n",title,pager + 1,total_pages);
         }
         for(int i = ps;i <= pe;i++){
             if(multi){
@@ -224,7 +224,7 @@ int pager_picks(const char *title, dbdef *Def,sqlite3 *db,sqlite3 *rdb,int multi
         for(int i = 0;i < count;i++){
             Def[i].state = 0;
         }
-        return -1;             /* Esc: 清完勾选直接返回取消, 别往下走 */
+        return -1;             /* Esc: 選択をクリアしてキャンセルを返す。先へ進まない */
     }
     if(!multi){
         if(Def[sel].func != NULL){
@@ -234,7 +234,7 @@ int pager_picks(const char *title, dbdef *Def,sqlite3 *db,sqlite3 *rdb,int multi
     }
     return n_state;
 }
-//针对版本更新选择的输出
+// バージョンアップデート選択用の表示
 int pager_pick_version(const char *title,versiondef *choice,double version,int multi){
     int count = 0;
     int sel = 0;
@@ -257,10 +257,10 @@ int pager_pick_version(const char *title,versiondef *choice,double version,int m
         int total_pages = (count + pager_row - 1) / pager_row;
         if(pe > count -1) pe = count - 1;
         if(multi){
-            printf("%s   [第%d页/%d页] 已选%d ↑↓选择  Space勾选  A全选/全不选  PgUp/PgDn翻页  Enter确认  Esc取消\n\n",title,pager + 1,total_pages,n_state);
+            printf("%s   [第%dページ/%dページ] 選択済%d ↑↓選択  Space選択  A全選択/全解除  PgUp/PgDnページ移動  Enter確定  Escキャンセル\n\n",title,pager + 1,total_pages,n_state);
         }
         else{
-            printf("%s   [第%d页/%d页] ↑↓选择  PgUp/PgDn翻页  Enter确认  Esc取消\n\n",title,pager + 1,total_pages);
+            printf("%s   [第%dページ/%dページ] ↑↓選択  PgUp/PgDnページ移動  Enter確定  Escキャンセル\n\n",title,pager + 1,total_pages);
         }
         for(int i = ps;i <= pe;i++){
             if(multi){
@@ -329,7 +329,7 @@ int pager_pick_version(const char *title,versiondef *choice,double version,int m
         for(int i = 0;i < count;i++){
             choice[i].state = 0;
         }
-        return -1;             /* Esc: 清完勾选直接返回取消, 别往下走 */
+        return -1;             /* Esc: 選択をクリアしてキャンセルを返す。先へ進まない */
     }
     if(!multi){
         return sel;

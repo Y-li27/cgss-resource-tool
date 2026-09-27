@@ -1,14 +1,14 @@
-/* cg.c: CG/USM 解包
+/* cg.c: CG/USM アンパック
  *
- * CG 命名规律(已实测确认):
- *   影片:  m/AnivCount/<NNN>/movie_XXXX.usm
- *   高清:  m/AnivCount/<NNN>/movie_XXXX_alt.usm   (带 _alt 的是高清版)
- *   音频:  m/bgm_anivcount_<NNN>_movie_XXXX.acb   (和影片配对, 同一个 movie id)
- *   其他:  m/live/high/2drichXXXX.usm              (2D live 背景)
+ * CG の命名規則（実機確認済み）:
+ *   ムービー:  m/AnivCount/<NNN>/movie_XXXX.usm
+ *   高画質:  m/AnivCount/<NNN>/movie_XXXX_alt.usm   (_alt 付きが高画質版)
+ *   音声:  m/bgm_anivcount_<NNN>_movie_XXXX.acb   (ムービーと対応、同じ movie id)
+ *   その他:  m/live/high/2drichXXXX.usm              (2D live 背景)
  *
- * 功能:
- *   1. 自定义 USM 解包: 给一个文件或目录, 解出 mp4, 同目录配对 acb 解 wav
- *   2. 解包已下载的 CG: 扫描 CGSS_DOWN\CG 里的分组, 选中一个全解
+ * 機能:
+ *   1. カスタム USM アンパック: ファイルまたはディレクトリを指定し、mp4 を取り出す。同じディレクトリの対応 acb から wav を展開
+ *   2. ダウンロード済み CG のアンパック: CGSS_DOWN\CG のグループを走査し、選んだものをすべて展開
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -20,7 +20,7 @@
 #include "util.h"
 #include "cg.h"
 
-/* ================== CRID 解密(和 usm.c 同一套) ================== */
+/* ================== CRID 復号（usm.c と同じ） ================== */
 
 static unsigned be32(const unsigned char *p){
     return ((unsigned)p[0] << 24) | ((unsigned)p[1] << 16)
@@ -99,10 +99,10 @@ static void MaskAudio(unsigned char *data, int size){
         data[i] ^= audioMask[i & 0x1F];
 }
 
-/* 解一个 usm: 产出 outdir\video.m2v 和 audio.adx(有音频时) */
+/* usm を1つ展開: outdir\video.m2v と audio.adx（音声があるとき）を出す */
 static int demux_file(const wchar_t *usm_path, const wchar_t *outdir){
     FILE *fp = _wfopen(usm_path, L"rb");
-    if (!fp){ printf("打不开 %ls\n", usm_path); return -1; }
+    if (!fp){ printf("開けません %ls\n", usm_path); return -1; }
     fseek(fp, 0, SEEK_END);
     long fileSize = ftell(fp);
 
@@ -147,11 +147,11 @@ static int demux_file(const wchar_t *usm_path, const wchar_t *outdir){
     fclose(fp);
     if (vo) fclose(vo);
     if (ao) fclose(ao);
-    printf("解出: 视频块 %u, 音频块 %u\n", nvideo, naudio);
+    printf("取り出し: 動画ブロック %u, 音声ブロック %u\n", nvideo, naudio);
     return (nvideo > 0) ? 0 : -1;
 }
 
-/* ================== 转 mp4 / 解 acb ================== */
+/* ================== mp4 変換 / acb 展開 ================== */
 
 static void find_ffmpeg(wchar_t *out, int n){
     out[0] = 0;
@@ -165,21 +165,21 @@ static void find_ffmpeg(wchar_t *out, int n){
         wcscpy(out, cand);
         return;
     }
-    swprintf(cand, 1300, L"D:\\CGSS动作\\工具\\ffmpeg\\ffmpeg.exe");
+    swprintf(cand, 1300, L"D:\\CGSSモーション\\ツール\\ffmpeg\\ffmpeg.exe");
     if (GetFileAttributesW(cand) != INVALID_FILE_ATTRIBUTES){
         wcscpy(out, cand);
         return;
     }
-    wcscpy(out, L"ffmpeg");   /* 最后赌 PATH 里有 */
+    wcscpy(out, L"ffmpeg");   /* 最後は PATH にあることに賭ける */
 }
 
-/* video.m2v (+音频) -> mp4name
- * extra_wav: 外部配对的音频(acb 解出的 wav), 没有就传 NULL */
+/* video.m2v（+音声）-> mp4name
+ * extra_wav: 外部の対応音声（acb から展開した wav）。無ければ NULL */
 static int convert_mp4(const wchar_t *outdir, const wchar_t *mp4name,
                        const wchar_t *extra_wav){
     wchar_t ffmpeg[1024];
     find_ffmpeg(ffmpeg, 1024);
-    if (!ffmpeg[0]){ printf("没找到 ffmpeg, 跳过转 mp4(保留 video.m2v)\n"); return -1; }
+    if (!ffmpeg[0]){ printf("ffmpeg が見つかりません。mp4 変換をスキップ（video.m2v は残します）\n"); return -1; }
 
     wchar_t cmd[4000];
     wchar_t audio_src[1300] = L"";
@@ -203,19 +203,19 @@ static int convert_mp4(const wchar_t *outdir, const wchar_t *mp4name,
                  L"-c:v libx264 -pix_fmt yuv420p -crf 18 \"%ls\\%ls\"",
                  ffmpeg, outdir, outdir, mp4name);
     }
-    printf("转换 %ls ...\n", mp4name);
+    printf("変換 %ls ...\n", mp4name);
     STARTUPINFOW si;
     PROCESS_INFORMATION pi;
     memset(&si, 0, sizeof si); si.cb = sizeof si;
     memset(&pi, 0, sizeof pi);
     if (!CreateProcessW(NULL, cmd, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi)){
-        printf("启动 ffmpeg 失败(可能没装), 已保留 video.m2v\n");
+        printf("ffmpeg の起動に失敗（未インストールの可能性）。video.m2v は残しています\n");
         return -1;
     }
     WaitForSingleObject(pi.hProcess, INFINITE);
     CloseHandle(pi.hThread);
     CloseHandle(pi.hProcess);
-    printf("完成 -> %ls\\%ls\n", outdir, mp4name);
+    printf("完了 -> %ls\\%ls\n", outdir, mp4name);
     return 0;
 }
 
@@ -235,28 +235,28 @@ static int decode_acb(const wchar_t *acb_path){
     wchar_t tool[1300];
     find_acb2wavs(tool, 1300);
     if (!tool[0]){
-        printf("没找到 acb2wavs.exe(放到程序同目录), 跳过音频解码\n");
+        printf("acb2wavs.exe が見つかりません（プログラムと同じディレクトリに置いてください）。音声デコードをスキップ\n");
         return -1;
     }
     wchar_t cmd[2600];
     swprintf(cmd, 2600, L"\"%ls\" \"%ls\"", tool, acb_path);
-    printf("解码 %ls ...\n", acb_path);
+    printf("デコード %ls ...\n", acb_path);
     STARTUPINFOW si;
     PROCESS_INFORMATION pi;
     memset(&si, 0, sizeof si); si.cb = sizeof si;
     memset(&pi, 0, sizeof pi);
     if (!CreateProcessW(NULL, cmd, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi)){
-        printf("启动 acb2wavs 失败\n");
+        printf("acb2wavs の起動に失敗\n");
         return -1;
     }
     WaitForSingleObject(pi.hProcess, INFINITE);
     CloseHandle(pi.hThread);
     CloseHandle(pi.hProcess);
-    printf("解码完成(输出在 acb 同目录)\n");
+    printf("デコード完了（出力は acb と同じディレクトリ）\n");
     return 0;
 }
 
-/* ================== 路径小工具 ================== */
+/* ================== パス補助 ================== */
 
 static const wchar_t *wbase(const wchar_t *path){
     const wchar_t *p = wcsrchr(path, L'\\');
@@ -270,7 +270,7 @@ static void wstrip_ext(wchar_t *s){
     if (dot) *dot = 0;
 }
 
-/* 从文件名里提取 movie_XXXX 的数字部分(找不到就是空串) */
+/* ファイル名から movie_XXXX の数字部分を取る（無ければ空文字） */
 static void get_movie_id(const wchar_t *name, wchar_t *out, int n){
     out[0] = 0;
     const wchar_t *p = wcsstr(name, L"movie_");
@@ -281,7 +281,7 @@ static void get_movie_id(const wchar_t *name, wchar_t *out, int n){
     out[k] = 0;
 }
 
-/* 找 acb2wavs 解出来的 wav: <acb目录>\_acb_<名>.acb\internal\*.wav */
+/* acb2wavs が展開した wav を探す: <acbディレクトリ>\_acb_<名>.acb\internal\*.wav */
 static int find_wav_from_acb(const wchar_t *acb_path, wchar_t *wav_out, int n){
     wav_out[0] = 0;
     wchar_t dir[1200], base[512];
@@ -302,24 +302,24 @@ static int find_wav_from_acb(const wchar_t *acb_path, wchar_t *wav_out, int n){
     return 0;
 }
 
-/* 解一个 usm: 解出 mp4 + 配对 acb 的 wav */
+/* usm を1つアンパック: mp4 と対応 acb の wav を取り出す */
 static void unpack_one(const wchar_t *usm_path, const wchar_t *custom_name){
     wchar_t base[512];
     wcscpy(base, wbase(usm_path));
     wstrip_ext(base);
 
-    /* 输出到 usm 同目录下的 "<名字>_解包" */
+    /* 出力先は usm と同じディレクトリの「<名前>_アンパック」 */
     wchar_t usmdir[1200];
     wcscpy(usmdir, usm_path);
     wchar_t *slash = wcsrchr(usmdir, L'\\');
     if (slash) *slash = 0; else wcscpy(usmdir, L".");
     wchar_t dir[1200];
-    swprintf(dir, 1200, L"%ls\\%ls_解包", usmdir, base);
+    swprintf(dir, 1200, L"%ls\\%ls_アンパック", usmdir, base);
     mkdirs(dir);
 
-    printf("\n==== 解包 %ls ====\n", usm_path);
+    printf("\n==== アンパック %ls ====\n", usm_path);
     if (demux_file(usm_path, dir) != 0){
-        printf("解包失败\n");
+        printf("アンパック失敗\n");
         return;
     }
 
@@ -328,11 +328,11 @@ static void unpack_one(const wchar_t *usm_path, const wchar_t *custom_name){
         swprintf(mp4name, 512, L"%ls.mp4", custom_name);
     else
         swprintf(mp4name, 512, L"%ls.mp4", base);
-    /* 配对 acb: usm 同目录 / 上级目录 / 上级目录\音频 里,
-     * 名字含 movie id 或含文件名的 .acb */
+    /* 対応 acb: usm と同じディレクトリ / 親ディレクトリ / 親ディレクトリ\音声 のうち、
+     * 名前に movie id またはファイル名を含む .acb */
     wchar_t movie[64];
     get_movie_id(usm_path, movie, 64);
-    /* 2drich<歌id>.usm 的配对是 song_<歌id>.acb */
+    /* 2drich<曲id>.usm の対応は song_<曲id>.acb */
     wchar_t songtok[64] = L"";
     if (wcsncmp(base, L"2drich", 6) == 0){
         const wchar_t *d = base + 6;
@@ -346,7 +346,7 @@ static void unpack_one(const wchar_t *usm_path, const wchar_t *custom_name){
     }
     wchar_t parent[1200], audiodir[1300], first_acb[1300] = L"";
     swprintf(parent, 1200, L"%ls\\..", usmdir);
-    swprintf(audiodir, 1300, L"%ls\\..\\音频", usmdir);
+    swprintf(audiodir, 1300, L"%ls\\..\\音声", usmdir);
     const wchar_t *cands[3];
     cands[0] = usmdir;
     cands[1] = parent;
@@ -374,25 +374,25 @@ static void unpack_one(const wchar_t *usm_path, const wchar_t *custom_name){
         FindClose(h);
     }
     if (!found)
-        printf("没找到配对 acb(可手动用 acb2wavs 解)\n");
+        printf("対応する acb が見つかりません（acb2wavs で手動展開できます）\n");
 
-    /* 有配对 acb 的话, 把解出的 wav 合成进 mp4 */
+    /* 対応 acb があれば、展開した wav を mp4 に合成 */
     wchar_t audio_wav[1300] = L"";
     if (first_acb[0])
         find_wav_from_acb(first_acb, audio_wav, 1300);
     if (audio_wav[0])
-        printf("找到音频: %ls, 准备合成进视频\n", audio_wav);
+        printf("音声を検出: %ls。動画へ合成します\n", audio_wav);
     convert_mp4(dir, mp4name, audio_wav);
 }
 
-/* 递归解一个目录里的所有 usm */
+/* ディレクトリ内の全 usm を再帰的にアンパック */
 static void unpack_folder(const wchar_t *dir){
     wchar_t pat[1300];
     swprintf(pat, 1300, L"%ls\\*", dir);
     WIN32_FIND_DATAW fd;
     HANDLE h = FindFirstFileW(pat, &fd);
     if (h == INVALID_HANDLE_VALUE){
-        printf("目录不存在或为空: %ls\n", dir);
+        printf("ディレクトリが無い、または空です: %ls\n", dir);
         return;
     }
     do {
@@ -413,17 +413,17 @@ static void unpack_folder(const wchar_t *dir){
     FindClose(h);
 }
 
-/* 给 browse.c 用: 解包已下载的 CG 分组目录 */
+/* browse.c 用: ダウンロード済み CG グループのディレクトリをアンパック */
 int unpack_cg_folder(const wchar_t *dir){
     unpack_folder(dir);
     return 0;
 }
 
-/* ================== 菜单入口 ================== */
+/* ================== メニュー入口 ================== */
 
 static int unpack_custom(void){
     char path[1024];
-    printf("输入 usm 文件或目录路径(留空=取消): ");
+    printf("usm ファイルまたはディレクトリのパスを入力（空欄=キャンセル）: ");
     if (fgets(path, sizeof path, stdin) == NULL) return -1;
     path[strcspn(path, "\r\n")] = 0;
     if (!path[0]) return -1;
@@ -432,7 +432,7 @@ static int unpack_custom(void){
     utf8_to_wide(path, wpath, 1100);
     DWORD attr = GetFileAttributesW(wpath);
     if (attr == INVALID_FILE_ATTRIBUTES){
-        printf("路径不存在: %s\n", path);
+        printf("パスが存在しません: %s\n", path);
         return -1;
     }
     if (attr & FILE_ATTRIBUTE_DIRECTORY){
@@ -440,7 +440,7 @@ static int unpack_custom(void){
         return -1;
     }
     char vname[256];
-    printf("输出视频名(留空=用文件名): ");
+    printf("出力する動画名（空欄=ファイル名）: ");
     if (fgets(vname, sizeof vname, stdin) == NULL) return -1;
     vname[strcspn(vname, "\r\n")] = 0;
     wchar_t wvname[256] = L"";
@@ -455,7 +455,7 @@ static int unpack_dl_cg(void){
     swprintf(wcg, 1200, L"%ls\\CG", wroot);
     DWORD attr = GetFileAttributesW(wcg);
     if (attr == INVALID_FILE_ATTRIBUTES || !(attr & FILE_ATTRIBUTE_DIRECTORY)){
-        printf("还没有下载的 CG(CGSS_DOWN\\CG 不存在), 先去资源查找与下载里下\n");
+        printf("ダウンロード済みの CG がありません（CGSS_DOWN\\CG が無い）。先にリソース検索とダウンロードで取得してください\n");
         return -1;
     }
 
@@ -479,16 +479,16 @@ static int unpack_dl_cg(void){
         FindClose(h);
     }
     if (n == 0){
-        printf("CGSS_DOWN\\CG 是空的\n");
+        printf("CGSS_DOWN\\CG は空です\n");
         return -1;
     }
-    snprintf(menu[n].name, sizeof menu[n].name, "返回");
+    snprintf(menu[n].name, sizeof menu[n].name, "戻る");
     menu[n].func = NULL; menu[n].state = 0; n++;
     snprintf(menu[n].name, sizeof menu[n].name, "END");
     menu[n].func = NULL; menu[n].state = 0;
 
-    int rc = pager_pick("已下载的CG(选一个解包)", menu, 0);
-    if (rc < 0 || rc == n - 2) return -1;   /* 取消或选到"返回" */
+    int rc = pager_pick("ダウンロード済みCG（1つ選んでアンパック）", menu, 0);
+    if (rc < 0 || rc == n - 2) return -1;   /* キャンセル、または「戻る」 */
 
     wchar_t sel[1300], selpath[1300];
     utf8_to_wide(menu[rc].name, sel, 1300);
@@ -499,13 +499,13 @@ static int unpack_dl_cg(void){
 
 int unpack_usm(void){
     def menu[] = {
-        {"1.自定义USM解包(文件/目录)", unpack_custom, 0},
-        {"2.解包已下载的CG", unpack_dl_cg, 0},
-        {"3.返回", NULL, 0},
+        {"1.カスタムUSMアンパック(ファイル/ディレクトリ)", unpack_custom, 0},
+        {"2.ダウンロード済みCGをアンパック", unpack_dl_cg, 0},
+        {"3.戻る", NULL, 0},
         {"END", NULL, 0}
     };
     while (1){
-        int rc = pager_pick("USM/CG解包", menu, 0);
+        int rc = pager_pick("USM/CGアンパック", menu, 0);
         if (rc == -1)
             continue;
         if (rc == 2)

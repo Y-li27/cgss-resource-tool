@@ -11,24 +11,24 @@
 #include "GBKswapUTF8.h"
 
 // 2D Spine ????
-/* ================== 2D Spine 小人 ================== */
+/* ================== 2D Spine SDキャラ ================== */
 
-/* 按卡片 id 查一张卡并打印 Spina 资源（card_spine_{卡片id}.unity3d） */
+/* カード id で1枚検索し、Spina リソースを表示（card_spine_{カードid}.unity3d） */
 static void queryspina_by_card_id(sqlite3 *db,sqlite3 *rdb){
     char buf[64];
     while (1) {
-        printf("请输入id\n");
+        printf("idを入力してください\n");
         if (fgets(buf, sizeof buf, stdin) == NULL) return;
         int card_id = atoi(buf);
         if (card_id <= 0) {
-            fprintf(stderr, "输入错误\n");
+            fprintf(stderr, "入力エラー\n");
             continue;
         }
         sqlite3_stmt *stmt = NULL;
         if (sqlite3_prepare_v2(db,
                 "SELECT id,name FROM card_data WHERE id=?",
                 -1, &stmt, NULL) != SQLITE_OK) {
-            fprintf(stderr, "SQL错误: %s\n", sqlite3_errmsg(db));
+            fprintf(stderr, "SQLエラー: %s\n", sqlite3_errmsg(db));
             continue;
         }
         sqlite3_bind_int(stmt, 1, card_id);
@@ -37,23 +37,23 @@ static void queryspina_by_card_id(sqlite3 *db,sqlite3 *rdb){
             printf("%d|%s\n", sqlite3_column_int(stmt, 0), sqlite3_column_text(stmt, 1));
             snprintf(res,sizeof res,"card_spine_%d.unity3d",sqlite3_column_int(stmt,0));
             printf("Spine:%s\t",res);print_res_hash(rdb,res); printf("\n");
-            printf("共享骨架:spine_sprachen_petit_chara_common.unity3d\t"); print_res_hash(rdb, "spine_sprachen_petit_chara_common.unity3d"); printf("\n");
+            printf("共有スケルトン:spine_sprachen_petit_chara_common.unity3d\t"); print_res_hash(rdb, "spine_sprachen_petit_chara_common.unity3d"); printf("\n");
             snprintf(res, sizeof res, "card_live_%d.unity3d", sqlite3_column_int(stmt, 0));
             printf("Spine_Live:%s\t", res); print_res_hash(rdb, res); printf("\n");
             
         } else {
-            fprintf(stderr, "没有相关卡片\n");
+            fprintf(stderr, "該当するカードがありません\n");
         }
         sqlite3_finalize(stmt);
         return;
     }
 }
 
-/* Spina 查找第四级菜单：1.输入id查找Spina资源 2.返回 */
+/* Spina 検索の第4階層メニュー：1.idを入力してSpinaリソースを検索 2.戻る */
 static void cardspina_id_menu(sqlite3 *db,sqlite3 *rdb){
     char buf[64];
     while (1) {
-        printf("1.输入id查找Spine资源\t2.返回\n");
+        printf("1.idを入力してSpineリソースを検索\t2.戻る\n");
         if (fgets(buf, sizeof buf, stdin) == NULL) return;
         int opt = atoi(buf);
         if (opt == 1) {
@@ -61,14 +61,14 @@ static void cardspina_id_menu(sqlite3 *db,sqlite3 *rdb){
             return;
         }
         if (opt == 2) return;
-        fprintf(stderr, "输入错误\n");
+        fprintf(stderr, "入力エラー\n");
     }
 }
 
-/* Spina 小人名字模糊查询并列出 */
+/* Spina の SDキャラ名を部分一致で検索して一覧表示 */
 static void queryspina_by_name(sqlite3 *db){
     char buf[128];
-    printf("请输入角色名（日文名）：\n");
+    printf("キャラ名（日本語名）を入力してください：\n");
     if (fgets(buf, sizeof buf, stdin) == NULL) return;
     buf[strcspn(buf, "\r\n")] = 0;
     char name_utf8[128];
@@ -80,11 +80,11 @@ static void queryspina_by_name(sqlite3 *db){
     if (sqlite3_prepare_v2(db,
             "SELECT id,name,open_dress_id FROM card_data WHERE name LIKE ? ORDER BY id",
             -1, &stmt, NULL) != SQLITE_OK) {
-        fprintf(stderr, "SQL错误:%s\n", sqlite3_errmsg(db));
+        fprintf(stderr, "SQLエラー:%s\n", sqlite3_errmsg(db));
         return;
     }
     sqlite3_bind_text(stmt, 1, like, -1, SQLITE_TRANSIENT);
-    int n = 0;  //记录输出次数
+    int n = 0;  // 出力回数を記録
     while (sqlite3_step(stmt) == SQLITE_ROW) {
         printf("| id = %d | name = %s | dress = %d |\n",
                sqlite3_column_int(stmt, 0),
@@ -94,26 +94,26 @@ static void queryspina_by_name(sqlite3 *db){
     }
     sqlite3_finalize(stmt);
     if (n == 0)
-        fprintf(stderr, "没有找到相关资源\n");
+        fprintf(stderr, "該当するリソースが見つかりません\n");
 }
 
-/* Spina 按角色 chara_id 查询并列出 */
+/* Spina をキャラ chara_id で検索して一覧表示 */
 static void queryspina_by_chara(sqlite3 *db){
     char buf[64];
     while (1)
     {
-            printf("请输入角色id（chara_id）：\n");
+            printf("キャラid（chara_id）を入力してください：\n");
          if (fgets(buf, sizeof buf, stdin) == NULL) return;
          int chara_id = atoi(buf);
          if (chara_id <= 0) {
-            fprintf(stderr, "输入错误\n");
+            fprintf(stderr, "入力エラー\n");
             break;
         }
         sqlite3_stmt *stmt = NULL;
         if (sqlite3_prepare_v2(db,
                 "SELECT id,name,open_dress_id FROM card_data WHERE chara_id=? ORDER BY id",
                 -1, &stmt, NULL) != SQLITE_OK) {
-            fprintf(stderr, "SQL错误: %s\n", sqlite3_errmsg(db));
+            fprintf(stderr, "SQLエラー: %s\n", sqlite3_errmsg(db));
             break;
         }
         sqlite3_bind_int(stmt, 1, chara_id);
@@ -127,28 +127,28 @@ static void queryspina_by_chara(sqlite3 *db){
         }
         sqlite3_finalize(stmt);
         if (n == 0)
-            fprintf(stderr, "没有找到相关资源\n");
+            fprintf(stderr, "該当するリソースが見つかりません\n");
         else
             break;
     }
     return ;
 }
 
-/* Spina 按服装 dress_id 查询并列出 */
+/* Spina を衣装 dress_id で検索して一覧表示 */
 static void queryspina_by_dress(sqlite3 *db){
     char buf[64];
-    printf("请输入open_dress_id（服饰id）：\n");
+    printf("open_dress_id（衣装id）を入力してください：\n");
     if (fgets(buf, sizeof buf, stdin) == NULL) return;
     int dress_id = atoi(buf);
     if (dress_id <= 0) {
-        fprintf(stderr, "输入错误\n");
+        fprintf(stderr, "入力エラー\n");
         return;
     }
     sqlite3_stmt *stmt = NULL;
     if (sqlite3_prepare_v2(db,
             "SELECT id,name,open_dress_id FROM card_data WHERE open_dress_id=? ORDER BY id",
             -1, &stmt, NULL) != SQLITE_OK) {
-        fprintf(stderr, "SQL错误: %s\n", sqlite3_errmsg(db));
+        fprintf(stderr, "SQLエラー: %s\n", sqlite3_errmsg(db));
         return;
     }
     sqlite3_bind_int(stmt, 1, dress_id);
@@ -162,15 +162,15 @@ static void queryspina_by_dress(sqlite3 *db){
     }
     sqlite3_finalize(stmt);
     if (n == 0)
-        fprintf(stderr, "没有找到相关资源\n");
+        fprintf(stderr, "該当するリソースが見つかりません\n");
 }
 
-/* Spine 模型查询菜单：选完一项自动回到本菜单，选 4 返回一级菜单 */
+/* Spine モデル検索メニュー：項目を選ぶと自動でこのメニューに戻る。4 で第1階層メニューへ戻る */
 int spina_Search(sqlite3 *db,sqlite3 *rdb){
-    _setmode(_fileno(stdin), _O_BINARY);   // stdin 二进制模式，换行自己处理
+    _setmode(_fileno(stdin), _O_BINARY);   // stdin をバイナリモードにし、改行は自前で処理
     char buf[128];
     while (1) {
-        printf("输入 1.卡片名称\t2.角色id（chara_id）\t3.角色dress_id\t4.返回\n");
+        printf("入力 1.カード名\t2.キャラid（chara_id）\t3.キャラdress_id\t4.戻る\n");
         if (fgets(buf, sizeof buf, stdin) == NULL) return -1;
         int opt = atoi(buf);
         switch (opt) {
@@ -187,10 +187,10 @@ int spina_Search(sqlite3 *db,sqlite3 *rdb){
             cardspina_id_menu(db,rdb);
             break;
         case 4:
-            printf("返回中...\n");
-            return 1;   // 告诉 lookup_main 回到一级菜单
+            printf("戻っています...\n");
+            return 1;   // lookup_main に第1階層メニューへ戻るよう伝える
         default:
-            fprintf(stderr, "输入错误\n");
+            fprintf(stderr, "入力エラー\n");
             break;
         }
     }

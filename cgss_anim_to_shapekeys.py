@@ -1,19 +1,19 @@
 # -*- coding: utf-8 -*-
 # cgss_anim_to_shapekeys.py
-# 把 CGSS head FBX 里的骨骼表情动作（AnimationStack）烘焙成形态键（Shape Keys / Blend Shapes）。
-# 用法：Blender 里 Scripting 面板打开本脚本，点 Run Script 即可。
-#  - 场景里已有 head FBX（带动作）就直接处理；
-#  - 没有的话会自动搜索并导入（见 FBX_PATH / 自动搜索路径）。
-# 结果会弹窗显示，无需看系统控制台。
+# CGSS の head FBX にあるボーン表情モーション（AnimationStack）をシェイプキー（Shape Keys / Blend Shapes）にベイクする。
+# 使い方：Blender の Scripting パネルで本スクリプトを開き、Run Script を押す。
+#  - シーンに head FBX（モーション付き）があればそのまま処理する。
+#  - なければ自動検索して読み込む（FBX_PATH / 自動検索パスを参照）。
+# 結果はダイアログに出るので、システムコンソールを見る必要はない。
 import bpy
 import os
 import glob
 import traceback
 
-# ===== 配置 =====
-# 手动指定带动作的 FBX（留空则自动搜索）
+# ===== 設定 =====
+# モーション付き FBX を手動指定（空欄なら自動検索）
 FBX_PATH = r''
-# 只处理名字含此串的动作（留空=全部动作）。默认 an_chr = 角色的 face 动作
+# 名前にこの文字列を含むモーションだけ処理（空欄＝すべて）。デフォルト an_chr ＝キャラの face モーション
 ACTION_FILTER = 'an_chr'
 # ================
 
@@ -30,7 +30,7 @@ def show_popup(title, msg):
 
 
 def script_dir():
-    # 从 Text Editor 打开的脚本文件拿到它的所在目录（不写死路径，换电脑也能用）
+    # Text Editor で開いたスクリプトの所在ディレクトリを得る（パスを固定しないので、別の PC でも使える）
     for t in bpy.data.texts:
         if 'cgss_anim_to_shapekeys' in t.name and t.filepath:
             d = os.path.dirname(bpy.path.abspath(t.filepath))
@@ -48,7 +48,7 @@ def search_dirs():
     dirs = []
     sd = script_dir()
     if sd:
-        dirs += [sd, os.path.join(sd, 'CGSS_DOWN'), os.path.join(sd, 'fbx\u5bfc\u51fa\u5bf9\u6bd4')]
+        dirs += [sd, os.path.join(sd, 'CGSS_DOWN'), os.path.join(sd, 'fbx書き出し比較')]
     if bpy.data.filepath:
         dirs.append(os.path.dirname(bpy.data.filepath))
     dirs.append(os.getcwd())
@@ -56,7 +56,7 @@ def search_dirs():
 
 
 def set_all_roughness():
-    # 强制糙度=1：先断开 Roughness 输入上的所有连接（否则 default_value 不生效）
+    # 粗さを強制的に 1：先に Roughness 入力の接続をすべて外す（そうしないと default_value が効かない）
     n = 0
     for mat in bpy.data.materials:
         mat.use_nodes = True
@@ -88,7 +88,7 @@ def find_fbx():
 
 
 def ensure_imported(fbx_path):
-    # 场景里已有骨架+蒙皮网格就直接用
+    # シーンにスケルトンとスキニングメッシュがあればそのまま使う
     for obj in bpy.data.objects:
         if obj.type == 'MESH':
             for mod in obj.modifiers:
@@ -96,7 +96,7 @@ def ensure_imported(fbx_path):
                     return True
     if not fbx_path:
         return False
-    # 先清空场景再导入，避免旧对象干扰
+    # 先にシーンを空にしてから読み込む。古いオブジェクトの干渉を避ける
     bpy.ops.object.select_all(action='SELECT')
     bpy.ops.object.delete(use_global=False)
     bpy.ops.import_scene.fbx(filepath=fbx_path)
@@ -107,9 +107,9 @@ def main():
     fbx_path = find_fbx()
     ok = ensure_imported(fbx_path)
     if not ok:
-        show_popup('未导入模型', '场景里没有骨架蒙皮网格，也找不到 FBX。\n'
-                   '请先在 Blender 导入带动作的 head FBX，\n'
-                   '或在脚本开头修改 FBX_PATH。')
+        show_popup('モデル未読み込み', 'シーンにスケルトン付きのスキニングメッシュがなく、FBX も見つかりません。\n'
+                   '先に Blender でモーション付きの head FBX を読み込むか、\n'
+                   'スクリプト先頭の FBX_PATH を変更してください。')
         return
 
     scene = bpy.context.scene
@@ -127,19 +127,19 @@ def main():
                 break
 
     if not meshes or arm is None:
-        show_popup('未找到网格', '导入的 FBX 里没有带骨架修改器的网格。')
+        show_popup('メッシュが見つかりません', '読み込んだ FBX にアーマチュアモディファイア付きのメッシュがありません。')
         return
 
     actions = [a for a in bpy.data.actions if not ACTION_FILTER or ACTION_FILTER in a.name]
     if not actions:
-        show_popup('没有匹配动作', '动作过滤器 "%s" 没匹配到任何动作（共 %d 个动作）。\n'
+        show_popup('一致するモーションがありません', 'モーションフィルタ "%s" に一致するモーションがありません（モーションは全部で %d 個）。\n'
                    '\n'
-                   '常见原因：这个 FBX 是 CLI 解包的，只有骨架+网格，\n'
-                   '没有动画数据。要用 AssetStudio GUI 全选\n'
-                   'Animator + AnimationClips 导出带动作的 FBX：\n'
-                   '  右键 Animator -> Export selected objects (merge)\n'
+                   'よくある原因：この FBX は CLI でアンパックしたもので、スケルトンとメッシュだけで\n'
+                   'アニメーションデータがありません。AssetStudio GUI で\n'
+                   'Animator と AnimationClips を全選択し、モーション付き FBX を書き出してください：\n'
+                   '  Animator を右クリック -> Export selected objects (merge)\n'
                    '  + Selected AnimationClips\n'
-                   '然后再运行本脚本。' % (ACTION_FILTER, len(bpy.data.actions)))
+                   'その後、このスクリプトを再実行してください。' % (ACTION_FILTER, len(bpy.data.actions)))
         return
 
     arm.animation_data_create()
@@ -191,7 +191,7 @@ def main():
             continue
         for obj in meshes:
             name = action.name
-            # Blender 导入 FBX 的动作名可能是 "对象|动作|Base Layer" 三段式，取动作段
+            # Blender が FBX を読み込むと、モーション名が "オブジェクト|モーション|Base Layer" の三段になることがある。モーション部分を取る
             if '|' in name:
                 parts = name.split('|')
                 name = parts[1] if len(parts) >= 2 else parts[-1]
@@ -204,10 +204,10 @@ def main():
 
     arm.animation_data.action = None
     rough_n = set_all_roughness()
-    msg = '完成：%d 个动作已转为形态键\n网格：%s\n动作数量：%d\n设置糙度=1 的材质：%d' % (
+    msg = '完了：%d 個のモーションをシェイプキーに変換\nメッシュ：%s\nモーション数：%d\n粗さ=1 にしたマテリアル：%d' % (
         count, ', '.join(o.name for o in meshes), len(actions), rough_n)
     print(msg)
-    show_popup('转换完成', msg)
+    show_popup('変換完了', msg)
 
 
 try:
@@ -215,4 +215,4 @@ try:
 except Exception:
     err = traceback.format_exc()
     print(err)
-    show_popup('脚本出错', err[-500:])
+    show_popup('スクリプトエラー', err[-500:])

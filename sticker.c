@@ -66,7 +66,7 @@ static int run_assetstudio(const wchar_t *assetstudio,
 
     if (!CreateProcessW(NULL, cmd, NULL, NULL, FALSE, 0, NULL, NULL,
                          &si, &pi)) {
-        printf("  启动 AssetStudio.CLI 失败 err=%lu\n",
+        printf("  AssetStudio.CLI の起動に失敗 err=%lu\n",
                (unsigned long)GetLastError());
         return 0;
     }
@@ -77,7 +77,7 @@ static int run_assetstudio(const wchar_t *assetstudio,
     CloseHandle(pi.hProcess);
 
     if (exit_code != 0) {
-        printf("  AssetStudio.CLI 失败，退出码 %lu\n",
+        printf("  AssetStudio.CLI 失敗、終了コード %lu\n",
                (unsigned long)exit_code);
         return 0;
     }
@@ -124,7 +124,7 @@ static int convert_sticker_skel(const wchar_t *spine_sub)
     printf("  -> %ls%s\n",
            wcsrchr(json, L'\\') ? wcsrchr(json, L'\\') + 1 : json,
            ok36 && ok38 ? " + _v38.json" :
-           (ok36 ? "（3.8 失败）" : "（转换失败）"));
+           (ok36 ? "（3.8 失敗）" : "（変換失敗）"));
     FindClose(h);
     return ok36 && ok38;
 }
@@ -176,13 +176,13 @@ int sticker_unpack_file(const char *resource_name,
     }
 
     if (GetFileAttributesW(raw_file) == INVALID_FILE_ATTRIBUTES) {
-        printf("  找不到贴纸资源文件: %s\n", resource_name);
+        printf("  ステッカーリソースファイルが見つかりません: %s\n", resource_name);
         return 0;
     }
 
     find_assetstudio(assetstudio, sizeof assetstudio / sizeof assetstudio[0]);
     if (!assetstudio[0]) {
-        printf("  找不到 AssetStudio.CLI.exe，只保留已下载文件\n");
+        printf("  AssetStudio.CLI.exe が見つかりません。ダウンロード済みファイルのみ残します\n");
         return 0;
     }
 
@@ -204,7 +204,7 @@ int sticker_unpack_file(const char *resource_name,
     copied += copy_dir(outdir, L"TextAsset", spine_sub, L"*.atlas*");
     copied += copy_dir(outdir, L"Texture2D", spine_sub, L"*.png");
     if (copied == 0) {
-        printf("  AssetStudio 没有导出贴纸 Spine 文件\n");
+        printf("  AssetStudio がステッカーの Spine ファイルを書き出していません\n");
         return 0;
     }
 
@@ -216,9 +216,9 @@ int sticker_unpack_file(const char *resource_name,
     find_first_file(spine_sub, L"*.png", png, 1300);
     if (atlas[0] && png[0]) {
         int frames = crop_atlas_regions(atlas, png, png_dir, wid);
-        printf("  -> 贴纸PNG\\%ls_1.png / _2.png（%d 帧）\n", wid, frames);
+        printf("  -> ステッカーPNG\\%ls_1.png / _2.png（%d フレーム）\n", wid, frames);
     } else {
-        printf("  没找到 atlas/png，跳过裁剪\n");
+        printf("  atlas/png が見つからないため、トリミングをスキップ\n");
     }
 
     {

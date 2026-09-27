@@ -21,7 +21,7 @@ typedef struct TypeDef_Num
     int state;
 }versiondef;
 
-void enable_vt(void);          /* 名字要和 paper.c 里定义的一模一样 */
+void enable_vt(void);          /* 名前は paper.c の定義と完全に一致させる */
 
 int console_rows(void);
 

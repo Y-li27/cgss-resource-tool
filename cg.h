@@ -2,10 +2,10 @@
 #define _CGSS_CG_H
 #include <windows.h>
 
-/* 主菜单: USM/CG 解包(自定义文件/目录 + 已下载CG) */
+/* メインメニュー: USM/CG アンパック（カスタムのファイル/ディレクトリ + ダウンロード済みCG） */
 int unpack_usm(void);
 
-/* 解包一个目录里的所有 usm(递归), 并解配对的 acb(给 browse.c 下载完后调用) */
+/* ディレクトリ内の全 usm を再帰アンパックし、対応 acb も展開（browse.c がダウンロード後に呼ぶ） */
 int unpack_cg_folder(const wchar_t *dir);
 
 #endif

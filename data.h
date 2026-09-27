@@ -13,20 +13,20 @@ typedef struct
 
 typedef struct
 {
-    long id;    //卡片id
-    char name[128];  //卡片名
-    int chara_id;   //角色id
-    int rarity;     //稀有度
+    long id;    //カードid
+    char name[128];  //カード名
+    int chara_id;   //キャラid
+    int rarity;     //レアリティ
     int attribute;  //属性
-    int title_flag; //称号卡标记    0=普通卡    1=称呼卡
-    int series_id;  //系列id
-    long evolution_id;   //觉醒卡片id
-    int evolution_type;  //进化/卡类型
-    int place;  //卡面地点id
-    int album_id;   //图鉴id
-    int solo_live;  //Solo演出标记 非0为有 值=配置id
-    int open_story_id;  //剧情id
-    int open_dress_id;  //服装id
+    int title_flag; //称号カードフラグ    0=通常カード    1=呼び名カード
+    int series_id;  //シリーズid
+    long evolution_id;   //覚醒カードid
+    int evolution_type;  //進化/カード種別
+    int place;  //カードイラスト地点id
+    int album_id;   //図鑑id
+    int solo_live;  //Solo演出フラグ 非0ならあり 値=設定id
+    int open_story_id;  //ストーリーid
+    int open_dress_id;  //衣装id
 
 }caraInfo;
 

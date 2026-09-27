@@ -1,4 +1,4 @@
-// unpack.c: 解包菜单 + 公共解包工具
+// unpack.c: アンパックメニュー + 共通アンパック処理
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -28,7 +28,7 @@ void wipe_dir(const wchar_t *dir){
     FindClose(h);
 }
 
-/* 查找 exe 同目录 AssetStudio\AssetStudio.CLI.exe，找不到则置空（调用方提示） */
+/* exe と同じディレクトリの AssetStudio\AssetStudio.CLI.exe を探す。無ければ空（呼び出し側が表示） */
 
 void find_assetstudio(wchar_t *out, int n){
     wchar_t exedir[1024];
@@ -44,12 +44,12 @@ void find_assetstudio(wchar_t *out, int n){
     }
 }
 
-/* 提示：表情动画都是骨骼动画；身体贴图引用缺失用 Blender 脚本修复 */
+/* ヒント: 表情アニメはすべてボーンアニメ。ボディのテクスチャ参照欠落は Blender スクリプトで修復 */
 
 void print_gui_guide(const wchar_t *model_dir){
     char gui_u8[1200], dir_u8[1200], tex_u8[1200], sk_u8[1200];
     wchar_t gui[1200];
-    /* 找 GUI 程序路径（exe 同目录 AssetStudio\AssetStudio.GUI.exe） */
+    /* GUI のパス（exe と同じディレクトリの AssetStudio\AssetStudio.GUI.exe） */
     GetModuleFileNameW(NULL, gui, 1200);
     wchar_t *gp = wcsrchr(gui, L'\\');
     if (gp) *gp = 0;
@@ -72,30 +72,30 @@ void print_gui_guide(const wchar_t *model_dir){
         wide_to_utf8(script, sk_u8, sizeof sk_u8);
     }
     printf("\n==============================================\n");
-    printf("提示：\n");
-    printf("  1. CLI 导出的 FBX 只有骨架+网格，没有表情动作；\n");
-    printf("     要带动作的 FBX 必须用 AssetStudio GUI 全选导出：\n");
+    printf("ヒント:\n");
+    printf("  1. CLI 書き出しの FBX はスケルトン+メッシュのみで、表情モーションがありません。\n");
+    printf("     モーション付き FBX は AssetStudio GUI で全選択して書き出してください:\n");
     if (gui_u8[0])
-        printf("     1) 打开：%s\n", gui_u8);
+        printf("     1) 開く: %s\n", gui_u8);
     else
-        printf("     1) 打开 AssetStudio GUI（未找到，请把 AssetStudio 文件夹放到程序同目录）\n");
-    printf("     2) File -> Load folder 选择：%s\n", dir_u8);
-    printf("     3) 资产列表选中 Animator(md_chr*_hq) 和全部 AnimationClip(an_*_face*)\n");
-    printf("        （Ctrl 多选）\n");
-    printf("     4) 右键 Animator -> Export selected objects (merge) + Selected AnimationClips\n");
-    printf("        FBX 输出到同一目录\n");
-    printf("  2. 表情动作（GUI 导出）是骨骼动画，模型本身没有形态键；\n");
-    printf("     需要形态键就在 Blender 里跑 cgss_anim_to_shapekeys.py 把表情烘焙成形态键。\n");
-    printf("  3. 身体（md_body）贴图引用缺失：贴图在独立 tx_body 包里，\n");
-    printf("     AssetStudio 跨包解析不到，FBX 里连引用都没有。\n");
-    printf("     在 Blender 里跑 cgss_apply_textures.py 即可按材质名自动贴图。\n");
-    printf("Blender 脚本：\n");
+        printf("     1) AssetStudio GUI を開く（未検出。AssetStudio フォルダをプログラムと同じディレクトリに置いてください）\n");
+    printf("     2) File -> Load folder で選択: %s\n", dir_u8);
+    printf("     3) アセット一覧で Animator(md_chr*_hq) とすべての AnimationClip(an_*_face*) を選択\n");
+    printf("        （Ctrl で複数選択）\n");
+    printf("     4) Animator を右クリック -> Export selected objects (merge) + Selected AnimationClips\n");
+    printf("        FBX は同じディレクトリに出力\n");
+    printf("  2. 表情モーション（GUI 書き出し）はボーンアニメで、モデル自体にシェイプキーはありません。\n");
+    printf("     シェイプキーが必要なら Blender で cgss_anim_to_shapekeys.py を実行し、表情をシェイプキーにベイクしてください。\n");
+    printf("  3. ボディ（md_body）のテクスチャ参照が欠けています。テクスチャは別の tx_body パックにあり、\n");
+    printf("     AssetStudio はパックをまたいで解決できないため、FBX に参照すらありません。\n");
+    printf("     Blender で cgss_apply_textures.py を実行すれば、マテリアル名で自動的にテクスチャを貼れます。\n");
+    printf("Blender スクリプト:\n");
     printf("  %s\n", tex_u8);
     printf("  %s\n", sk_u8);
     printf("==============================================\n\n");
 }
 
-/* 是否已解包：同目录有 <包名>.done 标记，或能找到对应 .fbx（兼容旧版导出） */
+/* アンパック済みか: 同じディレクトリに <パック名>.done がある、または対応 .fbx がある（旧書き出し互換） */
 
 int is_done(const wchar_t *dir, const wchar_t *pkg){
     wchar_t buf[1300];
@@ -108,7 +108,7 @@ int is_done(const wchar_t *dir, const wchar_t *pkg){
     if (dot) *dot = 0;
     swprintf(buf, 1300, L"%ls\\%ls.fbx", dir, base);
     if (GetFileAttributesW(buf) != INVALID_FILE_ATTRIBUTES) return 1;
-    /* 3d_md_body3760_hq.unity3d 导出的 fbx 叫 md_body3760_hq.fbx */
+    /* 3d_md_body3760_hq.unity3d の書き出し fbx は md_body3760_hq.fbx */
     if (wcsncmp(base, L"3d_", 3) == 0){
         swprintf(buf, 1300, L"%ls\\%ls.fbx", dir, base + 3);
         if (GetFileAttributesW(buf) != INVALID_FILE_ATTRIBUTES) return 1;
@@ -143,16 +143,16 @@ int copy_dir(const wchar_t *outdir, const wchar_t *sub, const wchar_t *dest, con
 
 int unpack_main(void){
     def menu[]={
-        {"1.动作解析",NULL,0},
-        {"2.表情/镜头",NULL,0},
-        {"3.模型解包为FBX(beta)",unpack_fbx_main,0},
-        {"4.角色资源解包(卡面/背景/卡面Spina动画(beta)/3d照片/spine(beta))",unpack_resources_main,0},
-        {"5.ACB文件解包",acb_main,0},
-        {"6.返回",NULL,0},
+        {"1.モーション解析",NULL,0},
+        {"2.表情/カメラ",NULL,0},
+        {"3.モデルをFBXにアンパック(beta)",unpack_fbx_main,0},
+        {"4.キャラリソース(カードイラスト/背景/カードイラストSpinaアニメ(beta)/3Dフォト/spine(beta))",unpack_resources_main,0},
+        {"5.ACBファイルアンパック",acb_main,0},
+        {"6.戻る",NULL,0},
         {"END",NULL,0}
     };
     while (1){
-        int rc = pager_pick("解包",menu,0);
+        int rc = pager_pick("アンパック",menu,0);
         if(rc == -1)
             continue;
         else if(rc == 5)
