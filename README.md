@@ -3,6 +3,7 @@
 CGSS（アイドルマスター シンデレラガールズ スターライトステージ）のリソース検索・ダウンロード・アンパック一体型ツール
 の、日本語翻訳版。
 フォーク元は以下の通り。
+
 https://github.com/BA-Momoi/cgss-resource-tool
 
 ---
@@ -51,7 +52,6 @@ https://github.com/Y-li27/Spine_preview
   ### 4.USM/CGアンパック
 
 - カスタム USM ファイルのアンパックに対応。
-- 
 
 ---
 
