@@ -5,13 +5,6 @@ CGSS（アイドルマスター シンデレラガールズ スターライト�
 フォーク元は以下の通り。
 https://github.com/BA-Momoi/cgss-resource-tool
 
-C で記述（MinGW + CMake）、静的リンク。Windows 10/11 では展開するだけですぐ使え、ランタイムのインストールは不要です
-> [!IMPORTANT]
-> アンパック関連の機能を使う場合は、AssetStudio を同じディレクトリに置き、NET 7 をインストールしてください
-> https://builds.dotnet.microsoft.com/dotnet/WindowsDesktop/7.0.20/windowsdesktop-runtime-7.0.20-win-x64.exe
-> ゲーム関連のリソースおよびコンテンツの著作権は BANDAI NAMCO Entertainment Inc. に帰属します。
-> 本ツールは学習・交流のみに使用してください。商用利用はしないでください。ダウンロード・アンパックした内容は 24 時間以内に削除してください。
-
 ---
 
 ## 機能一覧
@@ -29,34 +22,35 @@ C で記述（MinGW + CMake）、静的リンク。Windows 10/11 では展開す
 - プリセットの CG / 2DMV / 3Dモデル / 2D SDキャラ（Spineモデル） / 楽曲 / 譜面 / カードイラスト画像 / 動的カードイラスト（Spineアニメーション）
   キャラのボイス＆テキスト / 3Dステージ / 3DMVキャラモーション / ゲームイラストステッカー / BGM のダウンロード
 - カスタム検索に対応
-- 一部はダウンロード完了後にアンパックするかを選べ、手間を減らせる
 
 ### 2. アンパック
 
-- モデルを FBX にアンパック（AssetStudio.CLI を呼び出し。CLI で書き出したボディのテクスチャは自動参照できない）
+- モデルを FBX 形式でアンパック（AssetStudio を呼び出し。CLI で書き出したボディのテクスチャは自動参照できない）
 - カードイラスト / 背景 / Live2D / 3Dフォト / Spine を PNG にアンパック
 - Spine `.skel` を自動で JSON に変換し、次の 2 つを同時に生成：
   - `*.json`：3.6 形式（ブラウザプレビュー用）
   - `*_v38.json`：3.8.75 形式（Spine エディタ用）
 - RGB メインテクスチャ + A8 アルファチャンネルを自動合成して `*_merged.png` を作り、対応する atlas も生成
-- ACB 楽曲の抽出と HCA デコード（acb2wavs）
 
 ### 3. Spine プレビュー（beta）
 
 `CGSS_DOWN` 内で Spine（Live2D）リソースを持つキャラを走査し、欠けている JSON を自動で追加変換する。
 デフォルトのブラウザで `spine_preview/preview.html` を開けばアニメーションを再生できる。
+https://github.com/Y-li27/Spine_preview
+オンラインでも対応。
 
 - `.skel` ファイルを直接選択して自動で JSON に変換（atlas とテクスチャも同時に選ぶ必要がある）
 - レイヤー順は自動で並べる：bg → eff2 → chara → eff1 → fg
 - ブレンドモードは Spine の規則に従って再現（normal / additive / multiply / screen）
 - デフォルトは WebGL レンダリングで、三角形の継ぎ目がない。使えない場合は canvas 2D + 2 倍スーパーサンプリングへ自動フォールバック
-- 左右ミラー（flip）に対応。新カードは s、旧カードは n のスケルトンを、読み込む前に自動で知らせる
+- 新カードは s、旧カードは n のスケルトンを、読み込む前に自動で知らせる。
 - ページに「MP4を書き出し」ボタンがある：WebCodecs のハードウェアエンコード H.264、30fps。
   背景のバウンディングボックスを出力サイズにする（新しい版の Chrome / Edge が必要）
+  背景色も変更可能。
 
   ### 4.USM/CGアンパック
 
-- カスタム USM ファイルのアンパックに対応（ただしデフォルトの鍵は草菇の鍵。必要な場合は自分で usm.c の鍵を変更する）
+- カスタム USM ファイルのアンパックに対応。
 - 
 
 ---
@@ -174,3 +168,6 @@ cmake -S . -B build -DCGSS_STATIC=OFF
 https://github.com/RazTools/Studio
 - 音声デコードには deretore-toolkit（acb2wavs）を使用
 - Spine プレビューには Spine Runtimes（spine-core / spine-canvas / spine-webgl）を使用
+
+## Copyright
+The copyright of CGSS and its related content is held by [BANDAI NAMCO Entertainment Inc.](https://bandainamcoent.co.jp/)  
